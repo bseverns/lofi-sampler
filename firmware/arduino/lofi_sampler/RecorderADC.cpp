@@ -3,6 +3,12 @@
 
 bool RecorderADC::begin() {
   buf = (int16_t*)malloc(CAP * sizeof(int16_t));
+  // Ensure the ADC hands us the 12-bit values the rest of the math expects.
+  analogReadResolution(12);
+  // Light averaging = less hiss without smearing transients; tweak if needed.
+  analogReadAveraging(4);
+  // Stay explicit about the reference so 0..4095 maps to 0..3.3 V bias network.
+  analogReference(AR_DEFAULT);
   return buf != nullptr;
 }
 
