@@ -38,9 +38,17 @@ void AudioEngine::setLevel(uint8_t v, float lv) {
 bool AudioEngine::preloadAndPlay(uint8_t voice, const char* path) {
   if (!storage) return false;
   if (voice>=4) return false;
-  // Read whole slice (<= ~20KB typically) into vbuf
+  // Read the entire slice into our per-voice buffer. The buffer is now
+  // dimensioned for a full eighth of MAX_RECORD_SAMPLES, so a legit slice
+  // should fit without drama.
   int32_t n = storage->readRawInto(path, vbuf[voice], BUF_SAMPLES);
   if (n <= 0) return false;
+  if ((uint32_t)n > BUF_SAMPLES) {
+#if defined(SERIAL_PORT_MONITOR)
+    Serial.println(F("AudioEngine: slice spilled past vbuf -- truncating"));
+#endif
+    n = (int32_t)BUF_SAMPLES;
+  }
   vlen[voice] = (uint32_t)n;
   vpos[voice] = 0;
   return true;
