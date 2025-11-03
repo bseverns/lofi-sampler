@@ -32,8 +32,9 @@ private:
   Storage* storage = nullptr;
   volatile bool running = false;
 
-  // Simple per-voice RAM buffer for current slice
-  static const uint16_t BUF_SAMPLES = 2048;
+  // Simple per-voice RAM buffer for current slice. Big enough to slurp an entire
+  // recorded slice (MAX_RECORD_SAMPLES chopped into 8 pieces, rounded up).
+  static constexpr uint32_t BUF_SAMPLES = (MAX_RECORD_SAMPLES + 7u) / 8u;
   int16_t  vbuf[4][BUF_SAMPLES];
   uint32_t vlen[4] = {0,0,0,0};
   volatile uint32_t vpos[4] = {0,0,0,0};
