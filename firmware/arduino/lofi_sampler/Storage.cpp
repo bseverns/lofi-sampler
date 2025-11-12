@@ -34,6 +34,34 @@ int32_t Storage::readRawInto(const char* path, int16_t* dst, uint32_t maxSamples
   return nread/2;
 }
 
+int32_t Storage::readRawChunk(const char* path, uint32_t offsetSamples, int16_t* dst, uint32_t maxSamples) {
+  File f = lfs.open(path, FILE_O_READ);
+  if (!f) return -1;
+  uint32_t totalSamples = f.size() / 2;
+  if (offsetSamples >= totalSamples) {
+    f.close();
+    return 0;
+  }
+  uint32_t remaining = totalSamples - offsetSamples;
+  if (remaining > maxSamples) remaining = maxSamples;
+  if (!f.seek(offsetSamples * 2u)) {
+    f.close();
+    return -1;
+  }
+  // AudioEngine pulls in bite-sized chunks; keep it tight and synchronous.
+  int32_t nread = f.read((uint8_t*)dst, remaining * 2u);
+  f.close();
+  return nread / 2;
+}
+
+int32_t Storage::rawSampleCount(const char* path) {
+  File f = lfs.open(path, FILE_O_READ);
+  if (!f) return -1;
+  int32_t samples = f.size() / 2;
+  f.close();
+  return samples;
+}
+
 bool Storage::writeRaw(const char* path, const int16_t* src, uint32_t samples) {
   File f = lfs.open(path, FILE_O_WRITE | FILE_O_TRUNCATE | FILE_O_CREAT);
   if (!f) return false;
