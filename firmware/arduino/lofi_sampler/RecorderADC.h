@@ -13,6 +13,9 @@ public:
   // call frequently during recording; returns samples currently in buffer
   uint32_t service();
   const int16_t* data() const { return buf; }
+  // Expose a writable view so reslice routines can reuse the capture buffer as
+  // scratch RAM once recording is idle (no extra heap grab on SAMD51).
+  int16_t* mutableData() { return buf; }
 
 private:
   volatile bool rec = false;

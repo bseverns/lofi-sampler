@@ -21,6 +21,12 @@ Need a refresher on which pad combo does what? Bounce back to the [Control Atlas
 - While recording, the player continues; the row being recorded is muted.
 - On stop: slice buffer into 8 equal parts → write as raw files.
 
+## Pad combo cheat-sheet (per row)
+
+- **Shift (hold col 8) + row pad** → arm/cut tape style **record**.
+- **Shift + lit step** → fire a **stutter blast** of that slice (no gate change, auto velocity curve).
+- **Alt (hold col 7) + row pad** → **erase** that row’s slices + `source.raw`.
+- **Shift + Alt + row pad** → **reslice** from the saved `source.raw` (reloads from flash first).
 ---
 
 ## Timing Swim-Lane (MIDI vs. UI vs. Storage vs. DAC)
