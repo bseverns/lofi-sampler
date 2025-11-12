@@ -74,3 +74,21 @@ docs/
 - **CPU budget:** The ISR only mixes 4 int16 samples → saturation → DAC write. All file I/O happens in the main loop between steps.
 
 See `docs/workflow.md` for timing math and performance tips.
+
+---
+
+## Control Atlas (pad combos vs. firmware branches)
+
+If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/arduino/lofi_sampler/lofi_sampler.ino`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code:
+
+| Pad combo | `loop()` branch | Expected side effects |
+| --- | --- | --- |
+| **Tap any step (cols 0–5) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. |
+| **Hold Alt column (col 7)** | `if (c == COL_ALT) { gates[r][COL_ALT] = true; }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. |
+| **Hold Shift column (col 8)** | `else if (c == COL_SHIFT) { gates[r][COL_SHIFT] = true; }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. |
+| **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. |
+| **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” |
+| **Shift + Alt + Row pad** | `if (shift && alt) { /* TODO: reslice in-place */ }` | Currently a deliberate no-op (placeholder for an in-place re-slice). Enjoy the blinking lights, but don’t expect audio changes yet. |
+| **Release Alt/Shift** | `if (c == COL_ALT) gates[r][COL_ALT] = false;` / `if (c == COL_SHIFT) gates[r][COL_SHIFT] = false;` | Resets the modifier flags so normal tapping resumes. |
+
+Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
