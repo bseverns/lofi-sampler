@@ -13,6 +13,7 @@ This build targets **Arduino (TinyUSB)** + **analog line‑in** (as in Adafruit�
 - **USB MIDI Clock** (24 PPQN) + Start/Stop/Continue → transport.
 - **Multi-button controls:**
   - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in).
+  - **Shift + active gate pad** → **Stutter** that slice momentarily at a boosted velocity (no gate toggle).
   - **Alt (col 7) + Row pad** → **Erase** row’s slices.
   - **Shift + Alt + Row pad** → **Reslice** row from `source.raw` (equal 8ths).
   - **Normal taps** → toggle gate at that column for that row.
