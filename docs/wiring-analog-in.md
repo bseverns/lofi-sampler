@@ -17,5 +17,5 @@ When you scope the recorded data (e.g. dump a `source.raw` capture into Audacity
 - **Input level:** Keep around line level; avoid clipping. The bias network sets mid-rail; the Trellis visualizer guide shows exact values.
 
 **Testing**
-- Record short takes (≤ 2.5 s). On stop, the firmware saves `source.raw` then writes `A1.raw..A8.raw` as equal segments.
+- Record short takes (≤ 2.6 s by default). On stop, the firmware saves `source.raw` then writes `A1.raw..A8.raw` as equal segments.
 - If noise is high, add a simple RC low-pass (< 10 kHz) in front of the bias network.
