@@ -19,7 +19,7 @@ This build targets **Arduino (TinyUSB)** + **analog line‑in** (as in Adafruit�
   - **Normal taps** → toggle gate at that column for that row.
 - **Audio out:** DAC A0 mirrored to A1; timer‑driven at 22,050 Hz, 16‑bit signed.
 - **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step.
-- **Live resampling:** 2.5 s default (≈110 KB). On stop, auto‑slice → 8 raw files.
+- **Live resampling:** 2.6 s default (≈115 KB capture). On stop, auto‑slice → 8 raw files.
 
 > This repo purposely stores **RAW** 16‑bit little‑endian PCM (`.raw`) to avoid WAV parsing on-device. Use the `tools/wav_to_raw_slices.py` helper or record directly on the Trellis.
 
@@ -74,4 +74,39 @@ docs/
 - **Playback:** On each step, active rows preload that step’s raw slice from QSPI into a small RAM buffer; ISR mixes 4 voices and writes DAC.
 - **CPU budget:** The ISR only mixes 4 int16 samples → saturation → DAC write. All file I/O happens in the main loop between steps.
 
+### RAM budget vs. record slider (SAMD51)
+The NeoTrellis M4 gives us **192 KiB** of SRAM. Recording burns RAM three ways: one capture buffer and four voice buffers (one slice per voice). Rule of thumb:
+
+```
+audio_RAM_bytes ≈ SAMPLE_RATE_HZ * seconds * 3
+```
+
+| Max record seconds | Capture buffer | Voice buffers | Audio SRAM | Headroom vs. 192 KiB |
+| --- | --- | --- | --- | --- |
+| 2.0 s | ~86 KiB | ~43 KiB | ~129 KiB | ~63 KiB free |
+| 2.6 s *(default)* | ~112 KiB | ~56 KiB | ~168 KiB | ~24 KiB for Trellis/USB/stack |
+| 2.7 s *(upper comfy limit)* | ~116 KiB | ~58 KiB | ~174 KiB | ~18 KiB left — risky above this |
+
+That 24 KiB margin at 2.6 s keeps the Trellis driver, USB MIDI buffers, and the stack happy. Each extra **0.1 s** costs ~6.6 KiB, so if you crank `MAX_RECORD_SECONDS` past ~2.7 s you’ll start starving the rest of the firmware.
+
+LittleFS still keeps up: a step only has to slurp one slice (`BUF_SAMPLES` ≈ 7k samples → ~14 KiB) per active voice, which the QSPI flash handles comfortably before the next MIDI tick. On stop, writing eight slices + `source.raw` is ~4× the captured sample count; even the conservative ~400 KiB/s page-program rate finishes a 2.6 s take in <0.6 s, so USB MIDI can backlog clocks without overflowing.
+
 See `docs/workflow.md` for timing math and performance tips.
+
+---
+
+## Control Atlas (pad combos vs. firmware branches)
+
+If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/arduino/lofi_sampler/lofi_sampler.ino`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code:
+
+| Pad combo | `loop()` branch | Expected side effects |
+| --- | --- | --- |
+| **Tap any step (cols 0–5) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. |
+| **Hold Alt column (col 7)** | `if (c == COL_ALT) { gates[r][COL_ALT] = true; }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. |
+| **Hold Shift column (col 8)** | `else if (c == COL_SHIFT) { gates[r][COL_SHIFT] = true; }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. |
+| **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. |
+| **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” |
+| **Shift + Alt + Row pad** | `if (shift && alt) { /* TODO: reslice in-place */ }` | Currently a deliberate no-op (placeholder for an in-place re-slice). Enjoy the blinking lights, but don’t expect audio changes yet. |
+| **Release Alt/Shift** | `if (c == COL_ALT) gates[r][COL_ALT] = false;` / `if (c == COL_SHIFT) gates[r][COL_SHIFT] = false;` | Resets the modifier flags so normal tapping resumes. |
+
+Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
