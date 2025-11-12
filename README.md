@@ -72,5 +72,17 @@ docs/
 - **Max record secs:** Adjust in `Config.h` (RAM‑bound).
 - **Playback:** On each step, active rows preload that step’s raw slice from QSPI into a small RAM buffer; ISR mixes 4 voices and writes DAC.
 - **CPU budget:** The ISR only mixes 4 int16 samples → saturation → DAC write. All file I/O happens in the main loop between steps.
+- **AudioEngine etiquette:** `service()` runs in the foreground, drains a job queue, and tops off circular buffers in flash-sized chunks. The 22.05 kHz ISR only ever reads already-primed samples + gain ramps. If you add new work, make it a job and let the loop babysit it; the interrupt stays allergic to anything slower than a multiply.
 
 See `docs/workflow.md` for timing math and performance tips.
+
+### AudioEngine job queue cheat sheet
+
+Think of the engine as a stubborn bandmate who only plays what’s been laid out the night before:
+
+- **Jobs are the todo list.** Preload requests, fades, and diagnostic dumps all go through the tiny queue so the loop can serialize slow work without blocking the ISR.
+- **`pumpStreams()` feeds the beast.** It reads flash in 64–256 sample chunks (depending on buffer size), wrapping in-place so voices always have something queued.
+- **`pumpGains()` is just housekeeping.** Gain ramps are precomputed steps; no envelopes inside the interrupt.
+- **`isr()` is boring by design.** It mixes signed 16-bit samples already waiting in RAM, clamps them, and hits the DAC. No filesystem, no Serial prints, no drama.
+
+When in doubt, keep heavy lifting in `service()` and treat the ISR like a sacred cave where only deterministic math is allowed.
