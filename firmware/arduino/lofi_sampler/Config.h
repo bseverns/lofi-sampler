@@ -9,7 +9,8 @@ static const uint8_t  MIDI_PPQN        = 24;         // USB MIDI Clock
 static const uint8_t  CLOCKS_PER_STEP  = (MIDI_PPQN * BEATS_PER_BAR) / STEPS_PER_BAR; // 12
 
 // ---------- Recording ----------
-static const float    MAX_RECORD_SECONDS = 2.5f;     // ~110 KB
+// 2.6 s ≈ 114.7 KB capture + 57.3 KB of voice buffers ≈ 172.0 KB audio RAM
+static const float    MAX_RECORD_SECONDS = 2.6f;
 static const uint32_t MAX_RECORD_SAMPLES = (uint32_t)(SAMPLE_RATE_HZ * MAX_RECORD_SECONDS);
 
 // ---------- Pins ----------
