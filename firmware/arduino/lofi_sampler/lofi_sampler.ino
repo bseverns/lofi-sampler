@@ -15,9 +15,9 @@ Storage storage;
 RecorderADC rec;
 TrellisUI ui;
 
-volatile bool playing = false;
-volatile uint8_t stepIndex = 0;
-volatile uint16_t midiClockCount = 0;
+volatile bool playing = false;      // latched by MIDI Start/Stop/Continue
+volatile uint8_t stepIndex = 0;     // which of the 8 columns is hot
+volatile uint16_t midiClockCount = 0; // counts 24 PPQN clock ticks until the next step
 
 bool gates[4][8] = {{0}}; // rows A..D
 ModifierTracker modifierTracker;
@@ -141,13 +141,14 @@ static PadActionResult actionErase(uint8_t row, uint8_t col, const PadModifiers&
 }
 
 // ---------- MIDI parsing ----------
+// USB TinyUSB surfaces raw USB-MIDI packets. We only care about realtime 0xF8..0xFC commands.
 void handleMidi() {
   uint8_t packet[4];
   while (usb_midi.available()) {
     usb_midi.read(packet);
     uint8_t b0 = packet[1];
     // Realtime messages can appear anywhere
-    if (b0 == 0xF8) { // Timing Clock
+    if (b0 == 0xF8) { // Timing Clock (24 PPQN)
       if (playing) {
         midiClockCount++;
         if (midiClockCount >= CLOCKS_PER_STEP) {
@@ -156,13 +157,13 @@ void handleMidi() {
           playStep();
         }
       }
-    } else if (b0 == 0xFA) { // Start
+    } else if (b0 == 0xFA) { // Start (rewind to step 0 on next clock)
       playing = true;
       midiClockCount = 0;
       stepIndex = STEPS_PER_BAR - 1; // so first clock advance goes to step 0
-    } else if (b0 == 0xFB) { // Continue
+    } else if (b0 == 0xFB) { // Continue (keep current step)
       playing = true;
-    } else if (b0 == 0xFC) { // Stop
+    } else if (b0 == 0xFC) { // Stop (freeze UI animation but keep last gates)
       playing = false;
     }
   }
