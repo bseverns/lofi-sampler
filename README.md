@@ -5,6 +5,14 @@
 
 This build targets **Arduino (TinyUSB)** + **analog line‑in** (as in Adafruit’s Audio Input Circuit) on the **NeoTrellis M4**. It also supports recording via analog input into RAM, writing to QSPI **LittleFS**, and auto‑slicing to 8 RAW files per row.
 
+## Getting Started (hardware-first, in order)
+1. **Plug things in:** USB-C from your computer → NeoTrellis M4. Patch the **line input** (phone, synth, tape deck) through the Audio Input Circuit into **A5** (or your configured ADC pin) and plug headphones/speakers into the Trellis’ DAC jack. The wiring cheatsheet lives in [`docs/wiring-analog-in.md`](docs/wiring-analog-in.md).
+2. **Launch Arduino IDE:** `File → Open...` and point it at `firmware/arduino/lofi_sampler/lofi_sampler.ino`. This folder is the sketch root, so the IDE will slurp in the accompanying `.cpp` files automatically.
+3. **Select the board + core:** `Tools → Board → Adafruit SAMD Boards → Adafruit NeoTrellis M4`. Pick the USB port the Trellis enumerated on.
+4. **Install the listed libraries** via Library Manager (see below) and hit **Upload**. First boot formats the QSPI flash as LittleFS; keep it powered during the progress blip.
+5. **Load samples:** Option A — hold **Shift (col 8)** and tap any row pad to record the analog input, then tap again to stop + auto-slice. Option B — pre-slice a WAV (see the exact command below) and copy the `A1.raw…A8.raw` files plus `source.raw` to `/A`, `/B`, etc. on the mounted LittleFS drive (e.g. drag the files onto the NeoTrellis volume).
+6. **Clock + jam:** Start the provided `examples/midi_clock_sender.py` or your DAW so it emits MIDI Start + Clock. Toggle gates, hold **Alt** (col 7) to erase, hold **Shift** for live record/stutter. Connect headphones and run `python examples/gen_demo_row_A.py` once if you want a baked-in sample pack to copy to `/A/`.
+
 ---
 
 ## Features
@@ -63,8 +71,28 @@ docs/
 3. **Flash FS:** First upload the sketch; it will format LittleFS on first boot (QSPI).
 4. **Load samples:** Either
    - Record a row: hold **Shift (col 8)** + tap a row pad. Tap again to stop.
-   - Or pre‑slice: run `tools/wav_to_raw_slices.py` on a WAV and copy `A1.raw..A8.raw` to `/A/` (same for B/C/D).
-5. **Clock:** Start your DAW so it sends USB MIDI **Clock** + Start. Toggle gates and listen.
+   - Or pre-slice: run `tools/wav_to_raw_slices.py` and copy the slices straight to the Trellis drive. Example:
+     ```bash
+     python tools/wav_to_raw_slices.py ~/loops/vocal.wav --outdir /tmp/rowA --prefix A
+     cp /tmp/rowA/A*.raw /tmp/rowA/source.raw /media/NEOTRELLIS/A/
+     ```
+     Drop the matching files into `/B`, `/C`, `/D` as needed (`/A/A1.raw…A8.raw`, `/B/B1.raw…`).
+   - Need a built-in loop but can’t ship WAVs? Run `python examples/gen_demo_row_A.py` to synthesize a factory row, then copy the emitted `.raw` files under `/A/` on the Trellis.
+5. **Clock:** Start your DAW *or* run `python examples/midi_clock_sender.py --out "NTM4 Sampler"` so the board sees MIDI **Clock** + Start. Toggle gates and listen.
+
+---
+
+## Examples & DIY helpers
+- **`examples/gen_demo_row_A.py`:** Synthesizes a 2.56 s drone/chord mash, writes `source.raw` plus `A1.raw…A8.raw`, and never stores WAVs in the repo. Run it once and copy the emitted folder onto the Trellis to sanity-check hardware.
+- **`examples/midi_clock_sender.py`:** Python + `mido` script that spits MIDI Start + Clock so you can rehearse quantized playback without launching a DAW. Pass `--bpm` to change tempo.
+- **Need your own slices?** Run `tools/wav_to_raw_slices.py` (see the command above) and drag the files into the root-level `/A`, `/B`, `/C`, `/D` directories that LittleFS exposes.
+
+### First jam checklist
+1. Run `python examples/gen_demo_row_A.py` (once) and copy the resulting files onto the mounted Trellis drive under `/A/`.
+2. Plug headphones into the DAC jack (or patch the line out into your mixer).
+3. Run `python examples/midi_clock_sender.py --out "NTM4 Sampler" --bpm 90` to clock it.
+4. Tap gates on row A (columns 1–6) to lay down the 8-step groove.
+5. Hold **Shift** on column 8 + tap the row A pad to overdub your own recording whenever inspiration hits.
 
 ---
 
@@ -87,6 +115,8 @@ audio_RAM_bytes ≈ SAMPLE_RATE_HZ * seconds * 3
 | 2.0 s | ~86 KiB | ~43 KiB | ~129 KiB | ~63 KiB free |
 | 2.6 s *(default)* | ~112 KiB | ~56 KiB | ~168 KiB | ~24 KiB for Trellis/USB/stack |
 | 2.7 s *(upper comfy limit)* | ~116 KiB | ~58 KiB | ~174 KiB | ~18 KiB left — risky above this |
+
+**TL;DR:** run the stock **2.6 s** capture window unless you know the rest of your code’s RAM hunger; it leaves ~24 KiB for UI + USB. You can sneak up to ~2.7 s, but crashes lurk beyond that.
 
 That 24 KiB margin at 2.6 s keeps the Trellis driver, USB MIDI buffers, and the stack happy. Each extra **0.1 s** costs ~6.6 KiB, so if you crank `MAX_RECORD_SECONDS` past ~2.7 s you’ll start starving the rest of the firmware.
 
@@ -121,3 +151,5 @@ If you’re spelunking the UI logic, every pad mash ends up in the `loop()` stat
 | **Release Alt/Shift** | `if (c == COL_ALT) gates[r][COL_ALT] = false;` / `if (c == COL_SHIFT) gates[r][COL_SHIFT] = false;` | Resets the modifier flags so normal tapping resumes. |
 
 Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
+
+Ready to riff on new modes or effects? Peep [CONTRIBUTING.md](CONTRIBUTING.md) for the house style + testing checklist.

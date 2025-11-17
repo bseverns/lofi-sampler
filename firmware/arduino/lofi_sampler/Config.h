@@ -2,6 +2,7 @@
 #pragma once
 
 // ---------- Core timing ----------
+// USB Clock is 24 PPQN so every 12 clocks = one of our 8 steps per bar.
 static const uint32_t SAMPLE_RATE_HZ   = 22050;
 static const uint8_t  STEPS_PER_BAR    = 8;
 static const uint8_t  BEATS_PER_BAR    = 4;
@@ -14,6 +15,7 @@ static const float    MAX_RECORD_SECONDS = 2.6f;
 static const uint32_t MAX_RECORD_SAMPLES = (uint32_t)(SAMPLE_RATE_HZ * MAX_RECORD_SECONDS);
 
 // ---------- Pins ----------
+// Feed your Audio Input Circuit into ANALOG_IN_PIN (default A5) and plug phones into DAC A0/A1.
 #define DAC_PIN_L      A0
 #define DAC_PIN_R      A1
 #define ANALOG_IN_PIN  A5   // set to TRRS-mic ADC channel if you prefer headset input
