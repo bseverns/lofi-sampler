@@ -140,15 +140,25 @@ When in doubt, keep heavy lifting in `service()` and treat the ISR like a sacred
 
 If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/arduino/lofi_sampler/lofi_sampler.ino`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code:
 
-| Pad combo | `loop()` branch | Expected side effects |
-| --- | --- | --- |
-| **Tap any step (cols 0–5) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. |
-| **Hold Alt column (col 7)** | `if (c == COL_ALT) { gates[r][COL_ALT] = true; }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. |
-| **Hold Shift column (col 8)** | `else if (c == COL_SHIFT) { gates[r][COL_SHIFT] = true; }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. |
-| **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. |
-| **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” |
-| **Shift + Alt + Row pad** | `if (shift && alt) { /* TODO: reslice in-place */ }` | Currently a deliberate no-op (placeholder for an in-place re-slice). Enjoy the blinking lights, but don’t expect audio changes yet. |
-| **Release Alt/Shift** | `if (c == COL_ALT) gates[r][COL_ALT] = false;` / `if (c == COL_SHIFT) gates[r][COL_SHIFT] = false;` | Resets the modifier flags so normal tapping resumes. |
+Mini map so you can visualize the modifier rails while you read code:
+
+```
+Cols →       1   2   3   4   5   6   Alt   Shift
+Rows A–D:   [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
+            [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
+            [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
+            [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
+```
+
+| Pad combo | `loop()` branch | Expected side effects | See in code |
+| --- | --- | --- | --- |
+| **Tap any step (cols 0–5) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/arduino/lofi_sampler/lofi_sampler.ino#L197-L210) |
+| **Hold Alt column (col 7)** | `if (modifierTracker.handlePress(r, c)) { /* latched Alt for this row */ }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. | [`ModifierTracker::handlePress` (Alt latch)](firmware/arduino/lofi_sampler/PadInput.cpp#L18-L23) |
+| **Hold Shift column (col 8)** | `if (modifierTracker.handlePress(r, c)) { /* latched Shift for this row */ }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. | [`ModifierTracker::handlePress` (Shift latch)](firmware/arduino/lofi_sampler/PadInput.cpp#L24-L27) |
+| **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. | [`actionRecord`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L111-L127) |
+| **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” | [`actionErase`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L129-L140) |
+| **Shift + Alt + Row pad** | `if (!mods.alt || !mods.shift) return NoMatch; return resliceRow(row);` | Reloads the saved `/[Row]/source.raw` and re-slices it into eight fresh RAW files without touching gates. | [`actionReslice`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L79-L88) |
+| **Release Alt/Shift** | `modifierTracker.handleRelease(r, c);` | Resets the modifier flags so normal tapping resumes. | [`ModifierTracker::handleRelease`](firmware/arduino/lofi_sampler/PadInput.cpp#L31-L39) |
 
 Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
 
