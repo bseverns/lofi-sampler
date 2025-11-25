@@ -1,17 +1,23 @@
 
-# NeoTrellis M4 — Lo‑Fi Sampler (Arduino) — Live Resampling + USB MIDI Clock
+# NeoTrellis M4 — Lo‑Fi Sampler (PlatformIO) — Live Resampling + USB MIDI Clock
 
 **Core idea:** 4 rows = 4 voices. Each row holds 1 sample, auto‑sliced into **8 equal regions**. A global **USB MIDI clock** quantizes playback; each step all rows advance in lockstep. You get that sliding **silence→phase→chaos** when source lengths differ.
 
-This build targets **Arduino (TinyUSB)** + **analog line‑in** (as in Adafruit’s Audio Input Circuit) on the **NeoTrellis M4**. It also supports recording via analog input into RAM, writing to QSPI **LittleFS**, and auto‑slicing to 8 RAW files per row.
+This build now targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **NeoTrellis M4**. Same hardware, same neon chaos, but the toolchain is scripted so you can `pio run -t upload` instead of sweet‑talking the Arduino IDE. It still supports recording via analog input into RAM, writing to QSPI **LittleFS**, and auto‑slicing to 8 RAW files per row.
 
 ## Getting Started (hardware-first, in order)
 1. **Plug things in:** USB-C from your computer → NeoTrellis M4. Patch the **line input** (phone, synth, tape deck) through the Audio Input Circuit into **A5** (or your configured ADC pin) and plug headphones/speakers into the Trellis’ DAC jack. The wiring cheatsheet lives in [`docs/wiring-analog-in.md`](docs/wiring-analog-in.md).
-2. **Launch Arduino IDE:** `File → Open...` and point it at `firmware/arduino/lofi_sampler/lofi_sampler.ino`. This folder is the sketch root, so the IDE will slurp in the accompanying `.cpp` files automatically.
-3. **Select the board + core:** `Tools → Board → Adafruit SAMD Boards → Adafruit NeoTrellis M4`. Pick the USB port the Trellis enumerated on.
-4. **Install the listed libraries** via Library Manager (see below) and hit **Upload**. First boot formats the QSPI flash as LittleFS; keep it powered during the progress blip.
-5. **Load samples:** Option A — hold **Shift (col 8)** and tap any row pad to record the analog input, then tap again to stop + auto-slice. Option B — pre-slice a WAV (see the exact command below) and copy the `A1.raw…A8.raw` files plus `source.raw` to `/A`, `/B`, etc. on the mounted LittleFS drive (e.g. drag the files onto the NeoTrellis volume).
-6. **Clock + jam:** Start the provided `examples/midi_clock_sender.py` or your DAW so it emits MIDI Start + Clock. Toggle gates, hold **Alt** (col 7) to erase, hold **Shift** for live record/stutter. Connect headphones and run `python examples/gen_demo_row_A.py` once if you want a baked-in sample pack to copy to `/A/`.
+2. **Install PlatformIO:** `pip install platformio` or grab the VS Code extension. This repo already carries a [`platformio.ini`](firmware/platformio/platformio.ini) that pins every required library.
+3. **Build + upload:**
+   ```bash
+   cd firmware/platformio
+   pio run                   # compile + fetch Adafruit libs
+   pio run -t upload        # flash firmware over USB
+   pio device monitor       # peek at serial output (115200 baud)
+   ```
+   First boot formats the QSPI flash as LittleFS; keep it powered during the progress blip.
+4. **Load samples:** Option A — hold **Shift (col 8)** and tap any row pad to record the analog input, then tap again to stop + auto-slice. Option B — pre-slice a WAV (see the exact command below) and copy the `A1.raw…A8.raw` files plus `source.raw` to `/A`, `/B`, etc. on the mounted LittleFS drive (e.g. drag the files onto the NeoTrellis volume).
+5. **Clock + jam:** Start the provided `examples/midi_clock_sender.py` or your DAW so it emits MIDI Start + Clock. Toggle gates, hold **Alt** (col 7) to erase, hold **Shift** for live record/stutter. Connect headphones and run `python examples/gen_demo_row_A.py` once if you want a baked-in sample pack to copy to `/A/`.
 
 ---
 
@@ -23,7 +29,7 @@ This build targets **Arduino (TinyUSB)** + **analog line‑in** (as in Adafruit�
   - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in).
   - **Shift + active gate pad** → **Stutter** that slice momentarily at a boosted velocity (no gate toggle).
   - **Alt (col 7) + Row pad** → **Erase** row’s slices.
-  - **Shift + Alt + Row pad** → **Reslice** row from `source.raw` (equal 8ths).
+  - **Shift + Alt + Row pad** → **Reslice** the row by reloading `source.raw` off flash and carving new equal 8ths (no gate changes).
   - **Normal taps** → toggle gate at that column for that row.
 - **Audio out:** DAC A0 mirrored to A1; timer‑driven at 22,050 Hz, 16‑bit signed.
 - **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step.
@@ -37,26 +43,22 @@ This build targets **Arduino (TinyUSB)** + **analog line‑in** (as in Adafruit�
 
 - **Board:** Adafruit NeoTrellis M4 Express (SAMD51).
 - **Analog input (line/mic):** Follow Adafruit’s **Audio Input Circuit** to AC‑couple and bias the signal, then feed the configured **ADC pin** (see `Config.h`). TRRS mic input can also be used; set the matching ADC pin.
-- **Arduino Libraries (install via Library Manager):**
-  - `Adafruit NeoTrellis M4`
-  - `Adafruit TinyUSB Library` (for USB MIDI device)
-  - `Adafruit SPIFlash`
-  - `Adafruit LittleFS`
-  - `Adafruit ZeroTimer` (timer ISR at 22.05 kHz)
-  - `MIDI Library` (FortySevenEffects), optional (we use TinyUSB directly by default)
+- **PlatformIO auto-installs the libraries:** see [`firmware/platformio/platformio.ini`](firmware/platformio/platformio.ini). It pulls `Adafruit NeoTrellis M4`, `Adafruit TinyUSB`, `Adafruit SPIFlash`, `Adafruit LittleFS`, and `Adafruit ZeroTimer` so you don’t have to babysit the Library Manager.
 
 ---
 
 ## Folder layout
 ```
-firmware/arduino/lofi_sampler/
-  lofi_sampler.ino
-  AudioEngine.h / .cpp       # DAC timer ISR, 4‑voice mix, slice preload
-  RecorderADC.h / .cpp       # analog line‑in capture to RAM
-  Storage.h / .cpp           # LittleFS (QSPI) mount, read/write raw slices
-  Slicer.h / .cpp            # equal‑eighth slicing (RAM → files)
-  Config.h                   # pins, sample rates, timings, colors
-  TrellisUI.h / .cpp         # key scanning, LED states, combos
+firmware/platformio/
+  platformio.ini             # board + library roster (PlatformIO)
+  src/
+    main.cpp                 # former lofi_sampler.ino entry point
+    AudioEngine.h / .cpp     # DAC timer ISR, 4‑voice mix, slice preload
+    RecorderADC.h / .cpp     # analog line‑in capture to RAM
+    Storage.h / .cpp         # LittleFS (QSPI) mount, read/write raw slices
+    Slicer.h / .cpp          # equal‑eighth slicing (RAM → files)
+    Config.h                 # pins, sample rates, timings, colors
+    TrellisUI.h / .cpp       # key scanning, LED states, combos
 tools/
   wav_to_raw_slices.py       # convert WAV→8 RAW files for a row
 docs/
@@ -66,9 +68,14 @@ docs/
 ---
 
 ## Build quickstart
-1. **Boards Manager:** Install *Adafruit SAMD* core. Select **Adafruit NeoTrellis M4**.
-2. **Libraries:** Install the list above.
-3. **Flash FS:** First upload the sketch; it will format LittleFS on first boot (QSPI).
+1. **PlatformIO toolchain:** `pip install platformio` (or use the VS Code extension). The repo’s `platformio.ini` already names every dependency.
+2. **Compile + upload:**
+   ```bash
+   cd firmware/platformio
+   pio run
+   pio run -t upload
+   ```
+3. **Flash FS on first boot:** The firmware formats LittleFS on the first startup—let it finish before yanking USB.
 4. **Load samples:** Either
    - Record a row: hold **Shift (col 8)** + tap a row pad. Tap again to stop.
    - Or pre-slice: run `tools/wav_to_raw_slices.py` and copy the slices straight to the Trellis drive. Example:
@@ -101,7 +108,7 @@ docs/
 - **Max record secs:** Adjust in `Config.h` (RAM‑bound).
 - **Playback:** On each step, active rows preload that step’s raw slice from QSPI into a small RAM buffer; ISR mixes 4 voices and writes DAC.
 - **CPU budget:** The ISR only mixes 4 int16 samples → saturation → DAC write. All file I/O happens in the main loop between steps.
-- **AudioEngine etiquette:** `service()` runs in the foreground, drains a job queue, and tops off circular buffers in flash-sized chunks. The 22.05 kHz ISR only ever reads already-primed samples + gain ramps. If you add new work, make it a job and let the loop babysit it; the interrupt stays allergic to anything slower than a multiply.
+- **AudioEngine etiquette:** `service()` runs in the foreground, drains a job queue, and tops off circular buffers in flash-sized chunks. The 22.05 kHz ISR only ever reads already-primed samples + gain ramps. If you add new work, make it a job and let the loop babysit it; the interrupt stays allergic to anything slower than a multiply. New to the engine? [Read the flow notes + diagram.](docs/audio-engine.md)
 
 ### RAM budget vs. record slider (SAMD51)
 The NeoTrellis M4 gives us **192 KiB** of SRAM. Recording burns RAM three ways: one capture buffer and four voice buffers (one slice per voice). Rule of thumb:
