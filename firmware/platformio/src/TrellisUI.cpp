@@ -25,7 +25,8 @@ void TrellisUI::draw(uint8_t step, int recRow) {
         // red pulse overlay
         color = trellis.Color(255, 40, 40);
       }
-      trellis.setPixelColor(c, r, color);
+      uint8_t pixel = (r * 8u) + c;
+      trellis.setPixelColor(pixel, color);
     }
   }
   trellis.show();

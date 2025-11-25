@@ -138,7 +138,7 @@ void AudioEngine::service() {
   }
 }
 
-void AudioEngine::onTimerISR(tc_module*) {
+void AudioEngine::onTimerISR() {
   if (s_self) s_self->isr();
 }
 
