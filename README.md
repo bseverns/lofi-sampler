@@ -29,7 +29,7 @@ This build now targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the
   - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in).
   - **Shift + active gate pad** → **Stutter** that slice momentarily at a boosted velocity (no gate toggle).
   - **Alt (col 7) + Row pad** → **Erase** row’s slices.
-  - **Shift + Alt + Row pad** → **Reslice** row from `source.raw` (equal 8ths).
+  - **Shift + Alt + Row pad** → **Reslice** the row by reloading `source.raw` off flash and carving new equal 8ths (no gate changes).
   - **Normal taps** → toggle gate at that column for that row.
 - **Audio out:** DAC A0 mirrored to A1; timer‑driven at 22,050 Hz, 16‑bit signed.
 - **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step.
@@ -154,7 +154,7 @@ If you’re spelunking the UI logic, every pad mash ends up in the `loop()` stat
 | **Hold Shift column (col 8)** | `else if (c == COL_SHIFT) { gates[r][COL_SHIFT] = true; }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. |
 | **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. |
 | **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” |
-| **Shift + Alt + Row pad** | `if (shift && alt) { /* TODO: reslice in-place */ }` | Currently a deliberate no-op (placeholder for an in-place re-slice). Enjoy the blinking lights, but don’t expect audio changes yet. |
+| **Shift + Alt + Row pad** | `if (shift && alt) { resliceRow(row); }` | Reloads that row’s `source.raw` from flash into RAM and rewrites all eight slices in-place. If the source file is missing, you just get the light show. |
 | **Release Alt/Shift** | `if (c == COL_ALT) gates[r][COL_ALT] = false;` / `if (c == COL_SHIFT) gates[r][COL_SHIFT] = false;` | Resets the modifier flags so normal tapping resumes. |
 
 Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
