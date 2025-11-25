@@ -6,7 +6,9 @@ bool RecorderADC::begin() {
   // Ensure the ADC hands us the 12-bit values the rest of the math expects.
   analogReadResolution(12);
   // Light averaging = less hiss without smearing transients; tweak if needed.
+#if defined(analogReadAveraging)
   analogReadAveraging(4);
+#endif
   // Stay explicit about the reference so 0..4095 maps to 0..3.3 V bias network.
   analogReference(AR_DEFAULT);
   return buf != nullptr;
