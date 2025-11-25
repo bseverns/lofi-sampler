@@ -138,9 +138,9 @@ When in doubt, keep heavy lifting in `service()` and treat the ISR like a sacred
 
 ## Control Atlas (pad combos vs. firmware branches)
 
-If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/arduino/lofi_sampler/lofi_sampler.ino`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code:
+If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/arduino/lofi_sampler/lofi_sampler.ino`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code (column numbers here are the physical **1–8** labels; firmware counts from 0):
 
-Mini map so you can visualize the modifier rails while you read code:
+Mini map so you can visualize the modifier rails while you read code (Alt lives on column **7**, Shift on **8**):
 
 ```
 Cols →       1   2   3   4   5   6   Alt   Shift
@@ -152,7 +152,7 @@ Rows A–D:   [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
 
 | Pad combo | `loop()` branch | Expected side effects | See in code |
 | --- | --- | --- | --- |
-| **Tap any step (cols 0–5) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/arduino/lofi_sampler/lofi_sampler.ino#L197-L210) |
+| **Tap any step (cols 1–6) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/arduino/lofi_sampler/lofi_sampler.ino#L193-L210) |
 | **Hold Alt column (col 7)** | `if (modifierTracker.handlePress(r, c)) { /* latched Alt for this row */ }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. | [`ModifierTracker::handlePress` (Alt latch)](firmware/arduino/lofi_sampler/PadInput.cpp#L18-L23) |
 | **Hold Shift column (col 8)** | `if (modifierTracker.handlePress(r, c)) { /* latched Shift for this row */ }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. | [`ModifierTracker::handlePress` (Shift latch)](firmware/arduino/lofi_sampler/PadInput.cpp#L24-L27) |
 | **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. | [`actionRecord`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L111-L127) |
