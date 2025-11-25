@@ -1,4 +1,5 @@
 
+#include <Arduino.h>
 #include <Adafruit_TinyUSB.h>
 #include "Config.h"
 #include "AudioEngine.h"

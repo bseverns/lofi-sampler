@@ -10,7 +10,7 @@ This repo is half lab notebook, half hands-on tutorial. Keep commits conversatio
 5. Please include reproduction steps + before/after audio notes if you tweak timing, slicing, or effects.
 
 ## Where to hack
-- **Modes / pad combos:** See `firmware/arduino/lofi_sampler/lofi_sampler.ino` — the `handlePadCombo()` registry is where new behaviors land.
+- **Modes / pad combos:** See `firmware/platformio/src/main.cpp` — the `handlePadCombo()` registry is where new behaviors land.
 - **Effects / audio math:** `AudioEngine.*` holds the DAC ISR and buffer logic. Keep the ISR deterministic; push heavy work into `service()` jobs.
 - **Storage layout:** `Storage.*` + `Slicer.*`. If you add formats beyond RAW, document the transfer flow in the README.
 - **UI colors / pins / timing:** `Config.h` contains the pin map and global constants. Leave comments explaining any new pin choices.
