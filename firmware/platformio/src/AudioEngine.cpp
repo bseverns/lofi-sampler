@@ -56,7 +56,7 @@ bool AudioEngine::begin() {
   // Configure ZeroTimer to fire at SAMPLE_RATE_HZ
   zt.configure(TC_CLOCK_PRESCALER_DIV1, TC_COUNTER_SIZE_16BIT, TC_WAVE_GENERATION_MATCH_FREQ);
   zt.setCompare(0, (F_CPU / SAMPLE_RATE_HZ) - 1);
-  zt.setCallback(true, TC_CALLBACK_CC_CHANNEL0, (tc_callback_t)onTimerISR);
+  zt.setCallback(true, TC_CALLBACK_CC_CHANNEL0, onTimerISR);
   return true;
 }
 
@@ -138,8 +138,8 @@ void AudioEngine::service() {
   }
 }
 
-void AudioEngine::onTimerISR(AudioEngine* self) {
-  if (self) self->isr();
+void AudioEngine::onTimerISR(tc_module*) {
+  if (s_self) s_self->isr();
 }
 
 void AudioEngine::isr() {
