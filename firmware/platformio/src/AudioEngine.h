@@ -3,6 +3,10 @@
 #include <Arduino.h>
 #include "Config.h"
 
+// Forward-declare the TC struct that the ZeroTimer callback signature uses so we
+// can match it without pulling in SAMD internals here.
+struct tc_module;
+
 // Forward decl for Storage read
 class Storage;
 
@@ -38,7 +42,7 @@ private:
   static constexpr uint32_t BUF_SAMPLES = (MAX_RECORD_SAMPLES + 7u) / 8u;
   static constexpr uint32_t STREAM_CHUNK   =
       (BUF_SAMPLES > 256u) ? 256u : ((BUF_SAMPLES > 64u) ? (BUF_SAMPLES / 2u) : BUF_SAMPLES);
-  static void onTimerISR(AudioEngine* self);
+  static void onTimerISR(tc_module* module);
   void isr();
 
   enum class JobType : uint8_t {
