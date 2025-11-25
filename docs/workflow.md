@@ -26,7 +26,7 @@ Need a refresher on which pad combo does what? Bounce back to the [Control Atlas
 - **Shift (hold col 8) + row pad** → arm/cut tape style **record**.
 - **Shift + lit step** → fire a **stutter blast** of that slice (no gate change, auto velocity curve).
 - **Alt (hold col 7) + row pad** → **erase** that row’s slices + `source.raw`.
-- **Shift + Alt + row pad** → **reslice** from the saved `source.raw` (reloads from flash first).
+- **Shift + Alt + row pad** → **reslice** by pulling `source.raw` from flash into RAM, then rewriting all eight slices (no gate changes; if `source.raw` is missing nothing new hits disk).
 ---
 
 ## Timing Swim-Lane (MIDI vs. UI vs. Storage vs. DAC)
