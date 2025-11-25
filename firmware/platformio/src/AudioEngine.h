@@ -33,6 +33,11 @@ public:
 private:
   static constexpr uint8_t  JOB_QUEUE_SIZE = 8;
   static constexpr uint8_t  MAX_PATH_LEN   = 32;
+  // Simple per-voice RAM buffer for current slice. Big enough to slurp an entire
+  // recorded slice (MAX_RECORD_SAMPLES chopped into 8 pieces, rounded up).
+  static constexpr uint32_t BUF_SAMPLES = (MAX_RECORD_SAMPLES + 7u) / 8u;
+  static constexpr uint32_t STREAM_CHUNK   =
+      (BUF_SAMPLES > 256u) ? 256u : ((BUF_SAMPLES > 64u) ? (BUF_SAMPLES / 2u) : BUF_SAMPLES);
   static void onTimerISR(AudioEngine* self);
   void isr();
 
@@ -70,9 +75,6 @@ private:
   volatile uint8_t jobHead = 0;
   volatile uint8_t jobTail = 0;
 
-  // Simple per-voice RAM buffer for current slice. Big enough to slurp an entire
-  // recorded slice (MAX_RECORD_SAMPLES chopped into 8 pieces, rounded up).
-  static constexpr uint32_t BUF_SAMPLES = (MAX_RECORD_SAMPLES + 7u) / 8u;
   int16_t  vbuf[4][BUF_SAMPLES];
   volatile uint32_t vavailable[4] = {0,0,0,0};
   volatile uint32_t vpos[4] = {0,0,0,0};

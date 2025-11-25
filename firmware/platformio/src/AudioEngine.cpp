@@ -23,11 +23,6 @@ static AudioEngine* s_self = nullptr;
 namespace {
 static constexpr uint16_t DEFAULT_FADE_FRAMES = 96;
 static constexpr uint16_t STOP_FADE_FRAMES    = 128;
-static constexpr uint32_t STREAM_CHUNK = (AudioEngine::BUF_SAMPLES > 256u)
-                                           ? 256u
-                                           : ((AudioEngine::BUF_SAMPLES > 64u)
-                                                  ? (AudioEngine::BUF_SAMPLES / 2u)
-                                                  : AudioEngine::BUF_SAMPLES);
 }
 
 bool AudioEngine::begin() {
