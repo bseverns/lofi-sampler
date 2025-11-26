@@ -14,8 +14,10 @@ USB stack collisions. If you need to poke it yourself:
 Adafruit_USBD_MIDI usb_midi;
 
 // The shim makes MidiUSB behave like the old global, but forwards to usb_midi.
-// It hunts for whatever transmit symbol TinyUSB publishes in this version:
-// sendMIDI(...) -> send(...) -> write(...).
+// This repo targets Adafruit TinyUSB Library v3.x, which exposes
+// Adafruit_USBD_MIDI::send(packet); if that ever changes, the shim's
+// static_assert will force you to update the routing instead of silently
+// dropping events.
 MidiUSB.sendMIDI({0x09, 0x90, 60, 127});
 MidiUSB.flush();
 

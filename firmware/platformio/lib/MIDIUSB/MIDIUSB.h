@@ -7,9 +7,8 @@
 // the TinyUSB-backed Adafruit_USBD_MIDI instance you define in your sketch.
 
 #include <Adafruit_TinyUSB.h>
-#include "class/midi/midi_device.h"
-#include <cstring>
 #include <type_traits>
+#include <utility>
 
 // The firmware already instantiates a global `Adafruit_USBD_MIDI usb_midi;`.
 // Declare it here so inline methods can forward to it without pulling in the
@@ -22,6 +21,17 @@ extern Adafruit_USBD_MIDI usb_midi;
 using tinyusb_midi_packet_t = tud_midi_packet_t;
 using midiEventPacket_t = tinyusb_midi_packet_t;
 
+namespace detail {
+template <typename Midi, typename = void>
+struct has_send_midi : std::false_type {};
+
+template <typename Midi>
+struct has_send_midi<Midi, std::void_t<decltype(
+                               std::declval<Midi &>().send(
+                                   std::declval<const midiEventPacket_t &>()))>>
+    : std::true_type {};
+} // namespace detail
+
 class MIDIUSB_t {
 public:
   // Mirror the MIDIUSB API surface that the NeoTrellis M4 library expects.
@@ -30,12 +40,16 @@ public:
   midiEventPacket_t read(void) { return adaptPacket(usb_midi.read()); }
 
   void sendMIDI(const midiEventPacket_t &event) {
-    // TinyUSB's Adafruit_USBD_MIDI keeps evolving: older drops expose
-    // sendMIDI(event), newer ones rename it to send(event), and the lowest
-    // common denominator is a raw write() of the 4-byte packet. Use a tiny bit
-    // of SFINAE to route to whatever symbol this build of Adafruit_TinyUSB
-    // actually provides without forcing callers to update their includes.
-    forwardSend(usb_midi, event, 0);
+    // Adafruit TinyUSB Library v3.x exposes Adafruit_USBD_MIDI::send(packet).
+    // This firmware targets that API. If a future TinyUSB drop renames the
+    // transmit hook again, fail fast at compile time instead of silently
+    // discarding outbound MIDI traffic.
+    static_assert(
+        detail::has_send_midi<Adafruit_USBD_MIDI>::value,
+        "Adafruit_USBD_MIDI::send(midiEventPacket_t) missing; update the "
+        "shim if TinyUSB changes its transmit API.");
+
+    (void)usb_midi.send(event);
   }
 
   void flush(void) { usb_midi.flush(); }
