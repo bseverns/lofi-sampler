@@ -25,7 +25,7 @@ public:
   // identical, just without the duplicate USB stack.
   midiEventPacket_t read(void) { return usb_midi.read(); }
 
-  void sendMIDI(const midiEventPacket_t &event) { usb_midi.send(event); }
+  void sendMIDI(const midiEventPacket_t &event) { usb_midi.sendMIDI(event); }
 
   void flush(void) { usb_midi.flush(); }
 
@@ -34,5 +34,5 @@ public:
 
 // The legacy header exposes a global MidiUSB instance. We keep that contract,
 // but implement it inline so there is no separate translation unit to ship.
-static MIDIUSB_t MidiUSB;
+[[maybe_unused]] static MIDIUSB_t MidiUSB;
 
