@@ -14,8 +14,16 @@ USB stack collisions. If you need to poke it yourself:
 Adafruit_USBD_MIDI usb_midi;
 
 // The shim makes MidiUSB behave like the old global, but forwards to usb_midi.
+// It hunts for whatever transmit symbol TinyUSB publishes in this version:
+// sendMIDI(...) -> send(...) -> write(...).
 MidiUSB.sendMIDI({0x09, 0x90, 60, 127});
 MidiUSB.flush();
+
+// Clock follower? Keep reading usb_midi (or MidiUSB.read()) for 0xF8..0xFC
+// realtime messages and let the sequencer march to that beat.
+// Message sender? Call MidiUSB.sendMIDI(...) with a 4-byte packet and the
+// shim will slam it through the TinyUSB path without inventing a second USB
+// stack.
 ```
 
 A little punk-rock but plenty practical: one header, no extra baggage, and your
