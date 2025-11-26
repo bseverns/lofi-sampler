@@ -10,15 +10,31 @@
 #include <type_traits>
 #include <utility>
 
+// Pull in the TinyUSB MIDI packet definition directly so we can surface the
+// exact packet type TinyUSB exports (newer library releases renamed
+// tud_midi_packet_t to midi_packet_t).
+#if __has_include(<class/midi/midi_device.h>)
+#include <class/midi/midi_device.h>
+#elif __has_include(<tusb_midi.h>)
+#include <tusb_midi.h>
+#endif
+
 // The firmware already instantiates a global `Adafruit_USBD_MIDI usb_midi;`.
 // Declare it here so inline methods can forward to it without pulling in the
 // original MIDIUSB implementation (which would collide with TinyUSB symbols).
 extern Adafruit_USBD_MIDI usb_midi;
 
-// TinyUSB exposes a canonical 4-byte USB MIDI packet (tud_midi_packet_t).
-// Re-export it here so callers see a concrete type rather than a decltype()
+// TinyUSB exposes a canonical 4-byte USB MIDI packet; newer releases export it
+// as midi_packet_t, while older drops used tud_midi_packet_t. Re-export the
+// available symbol so callers see a concrete type rather than a decltype()
 // deduction from whatever Adafruit_USBD_MIDI::read() happens to return.
+#if __has_include(<class/midi/midi_device.h>)
+using tinyusb_midi_packet_t = midi_packet_t;
+#elif __has_include(<tusb_midi.h>)
 using tinyusb_midi_packet_t = tud_midi_packet_t;
+#else
+#error "No TinyUSB MIDI packet type found; update MIDIUSB shim includes."
+#endif
 using midiEventPacket_t = tinyusb_midi_packet_t;
 
 namespace detail {
