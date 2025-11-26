@@ -1,0 +1,55 @@
+name: Firmware build
+
+on:
+  push:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware-build.yml'
+      - 'README.md'
+  pull_request:
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/firmware-build.yml'
+      - 'README.md'
+
+jobs:
+  build:
+    name: Build NeoTrellis firmware
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: firmware/platformio
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install PlatformIO
+        run: pip install --upgrade platformio
+
+      - name: Cache PlatformIO downloads and .pio build dir
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio/.cache
+            firmware/platformio/.pio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('firmware/platformio/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+
+      - name: Build (adafruit_trellis_m4 + TinyUSB MIDI)
+        run: |
+          mkdir -p artifacts
+          set -o pipefail
+          pio run -e adafruit_trellis_m4 2>&1 | tee artifacts/firmware-build.log
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firmware-build-logs
+          path: firmware/platformio/artifacts/
