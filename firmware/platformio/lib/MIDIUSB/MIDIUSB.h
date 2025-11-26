@@ -25,11 +25,46 @@ public:
   // identical, just without the duplicate USB stack.
   midiEventPacket_t read(void) { return usb_midi.read(); }
 
-  void sendMIDI(const midiEventPacket_t &event) { usb_midi.sendMIDI(event); }
+  void sendMIDI(const midiEventPacket_t &event) {
+    // TinyUSB's Adafruit_USBD_MIDI keeps evolving: older drops expose
+    // sendMIDI(event), newer ones rename it to send(event), and the lowest
+    // common denominator is a raw write() of the 4-byte packet. Use a tiny bit
+    // of SFINAE to route to whatever symbol this build of Adafruit_TinyUSB
+    // actually provides without forcing callers to update their includes.
+    forwardSend(usb_midi, event, 0);
+  }
 
   void flush(void) { usb_midi.flush(); }
 
   uint32_t available(void) { return usb_midi.available(); }
+
+private:
+  template <typename Midi>
+  static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
+                          int) -> decltype(midi.sendMIDI(event), void()) {
+    midi.sendMIDI(event);
+  }
+
+  template <typename Midi>
+  static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
+                          long) -> decltype(midi.send(event), void()) {
+    midi.send(event);
+  }
+
+  template <typename Midi>
+  static auto forwardSend(Midi &midi, const midiEventPacket_t &event, char)
+      -> decltype(midi.write(reinterpret_cast<const uint8_t *>(&event),
+                             sizeof(event)),
+                  void()) {
+    midi.write(reinterpret_cast<const uint8_t *>(&event), sizeof(event));
+  }
+
+  template <typename Midi>
+  static void forwardSend(Midi &, const midiEventPacket_t &, ...) {
+#if defined(ARDUINO)
+#warning "No Adafruit_USBD_MIDI send routine detected; MIDIUSB shim sendMIDI() will be a no-op."
+#endif
+  }
 };
 
 // The legacy header exposes a global MidiUSB instance. We keep that contract,
