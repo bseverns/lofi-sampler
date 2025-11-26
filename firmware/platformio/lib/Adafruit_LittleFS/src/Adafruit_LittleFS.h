@@ -58,6 +58,7 @@ class LittleFS_QSPIFlash {
   bool format();
   File open(const char* path, uint8_t mode = FILE_O_READ);
   bool remove(const char* path);
+  bool exists(const char* path);
   bool mkdir(const char* path);
 
  private:

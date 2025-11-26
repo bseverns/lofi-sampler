@@ -1,6 +1,7 @@
 #include "Adafruit_LittleFS.h"
 
 #include <algorithm>
+#include <set>
 
 namespace Adafruit_LittleFS_Namespace {
 
@@ -13,6 +14,7 @@ struct MemoryFileRecord {
 };
 
 static std::map<String, MemoryFileRecord> gFileTable;
+static std::set<String> gDirectoryTable;
 
 File::File() : record(nullptr), cursor(0), writable(false) {}
 
@@ -85,12 +87,16 @@ bool LittleFS_QSPIFlash::begin() {
 
 bool LittleFS_QSPIFlash::format() {
   gFileTable.clear();
+  gDirectoryTable.clear();
   return true;
 }
 
 File LittleFS_QSPIFlash::open(const char* path, uint8_t mode) {
   if (!path) return File();
   String key(path);
+  if (gDirectoryTable.find(key) != gDirectoryTable.end()) {
+    return File();
+  }
   auto it = gFileTable.find(key);
   if (it == gFileTable.end()) {
     if (!(mode & FILE_O_CREAT)) {
@@ -120,14 +126,22 @@ File LittleFS_QSPIFlash::open(const char* path, uint8_t mode) {
 
 bool LittleFS_QSPIFlash::remove(const char* path) {
   if (!path) return false;
-  return gFileTable.erase(String(path)) > 0;
+  String key(path);
+  bool removedFile = gFileTable.erase(key) > 0;
+  bool removedDir = gDirectoryTable.erase(key) > 0;
+  return removedFile || removedDir;
 }
 
 bool LittleFS_QSPIFlash::mkdir(const char* path) {
-  // Directory semantics are not modeled in this in-memory shim. We simply
-  // acknowledge the request to keep sketches flowing while vendoring.
-  (void)path;
+  if (!path) return false;
+  gDirectoryTable.insert(String(path));
   return true;
+}
+
+bool LittleFS_QSPIFlash::exists(const char* path) {
+  if (!path) return false;
+  String key(path);
+  return (gFileTable.find(key) != gFileTable.end()) || (gDirectoryTable.find(key) != gDirectoryTable.end());
 }
 
 }  // namespace Adafruit_LittleFS_Namespace
