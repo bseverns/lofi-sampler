@@ -44,7 +44,10 @@ template <typename Packet, typename = void> struct midi_packet_or_fallback {
 };
 
 template <typename Packet>
-struct midi_packet_or_fallback<Packet, std::enable_if_t<sizeof(Packet) == 4>> {
+struct midi_packet_or_fallback<
+    Packet, typename std::enable_if<sizeof(Packet) == 4 &&
+                                    (std::is_class<Packet>::value ||
+                                     std::is_union<Packet>::value)>::type> {
   using type = Packet;
 };
 
