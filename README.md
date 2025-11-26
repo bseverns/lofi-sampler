@@ -1,9 +1,9 @@
 
-# NeoTrellis M4 — Lo‑Fi Sampler (PlatformIO) — Live Resampling + USB MIDI Clock
+# NeoTrellis M4 — Lo‑Fi Sampler — Live Resampling + USB MIDI Clock
 
 **Core idea:** 4 rows = 4 voices. Each row holds 1 sample, auto‑sliced into **8 equal regions**. A global **USB MIDI clock** quantizes playback; each step all rows advance in lockstep. You get that sliding **silence→phase→chaos** when source lengths differ.
 
-This build now targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **NeoTrellis M4**. Same hardware, same neon chaos, but the toolchain is scripted so you can `pio run -t upload` instead of sweet‑talking the Arduino IDE. It still supports recording via analog input into RAM, writing to QSPI **LittleFS**, and auto‑slicing to 8 RAW files per row.
+This build targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **NeoTrellis M4**. Same hardware, same neon chaos, but the toolchain is scripted so you can `pio run -t upload` instead of sweet‑talking the Arduino IDE. It still supports recording via analog input into RAM, writing to QSPI **LittleFS**, and auto‑slicing to 8 RAW files per row.
 
 ## Getting Started (hardware-first, in order)
 1. **Plug things in:** USB-C from your computer → NeoTrellis M4. Patch the **line input** (phone, synth, tape deck) through the Audio Input Circuit into **A5** (or your configured ADC pin) and plug headphones/speakers into the Trellis’ DAC jack. The wiring cheatsheet lives in [`docs/wiring-analog-in.md`](docs/wiring-analog-in.md).
