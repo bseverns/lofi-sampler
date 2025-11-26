@@ -1,6 +1,7 @@
 
 #include <Arduino.h>
 #include <Adafruit_TinyUSB.h>
+#include "MIDIUSB.h"
 #include "Config.h"
 #include "AudioEngine.h"
 #include "Storage.h"
