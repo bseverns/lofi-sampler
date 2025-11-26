@@ -17,7 +17,7 @@ This build targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **N
    ```
    First boot formats the QSPI flash as LittleFS; keep it powered during the progress blip.
 4. **Load samples:** Option A — hold **Shift (col 8)** and tap any row pad to record the analog input, then tap again to stop + auto-slice. Option B — pre-slice a WAV (see the exact command below) and copy the `A1.raw…A8.raw` files plus `source.raw` to `/A`, `/B`, etc. on the mounted LittleFS drive (e.g. drag the files onto the NeoTrellis volume).
-5. **Clock + jam:** Start the provided `examples/midi_clock_sender.py` or your DAW so it emits MIDI Start + Clock. Toggle gates, hold **Alt** (col 7) to erase, hold **Shift** for live record/stutter. Connect headphones and run `python examples/gen_demo_row_A.py` once if you want a baked-in sample pack to copy to `/A/`.
+5. **Clock + jam:** Start the provided `examples/midi_clock_sender.py` or your DAW so it emits MIDI Start + Clock. Toggle gates, hold **Alt** (col 7) to erase, hold **Shift** for live record/stutter. Connect headphones and run `python examples/gen_demo_row_A.py` once if you want baked-in sample packs to copy onto `/A/`, `/B/`, `/C/`, `/D/`.
 
 ---
 
@@ -84,7 +84,7 @@ docs/
      cp /tmp/rowA/A*.raw /tmp/rowA/source.raw /media/NEOTRELLIS/A/
      ```
      Drop the matching files into `/B`, `/C`, `/D` as needed (`/A/A1.raw…A8.raw`, `/B/B1.raw…`).
-   - Need a built-in loop but can’t ship WAVs? Run `python examples/gen_demo_row_A.py` to synthesize a factory row, then copy the emitted `.raw` files under `/A/` on the Trellis.
+   - Need built-in loops but can’t ship WAVs? Run `python examples/gen_demo_row_A.py` to synthesize factory rows, then copy the emitted `.raw` files under `/A/`, `/B/`, `/C/`, `/D/` on the Trellis.
 5. **Clock:** Start your DAW *or* run `python examples/midi_clock_sender.py --out "NTM4 Sampler"` so the board sees MIDI **Clock** + Start. Toggle gates and listen.
 
 ### Demo manifest + escape hatch
@@ -109,7 +109,7 @@ docs/
 ---
 
 ## Examples & DIY helpers
-- **`examples/gen_demo_row_A.py`:** Synthesizes a 2.56 s drone/chord mash, writes `source.raw` plus `A1.raw…A8.raw`, and never stores WAVs in the repo. Run it once and copy the emitted folder onto the Trellis to sanity-check hardware.
+- **`examples/gen_demo_row_A.py`:** Synthesizes a 2.56 s loop for each row, writes `source.raw` plus `X1.raw…X8.raw` into per-row folders, and never stores WAVs in the repo. Run it once and copy the emitted folders onto the Trellis to sanity-check hardware. Pass `--rows A --outdir examples/demo_row_A` to mimic the original single-row flow.
 - **`examples/midi_clock_sender.py`:** Python + `mido` script that spits MIDI Start + Clock so you can rehearse quantized playback without launching a DAW. Pass `--bpm` to change tempo.
 - **Need your own slices?** Run `tools/wav_to_raw_slices.py` (see the command above) and drag the files into the root-level `/A`, `/B`, `/C`, `/D` directories that LittleFS exposes.
 
