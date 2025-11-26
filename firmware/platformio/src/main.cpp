@@ -16,6 +16,7 @@ AudioEngine audio;
 Storage storage;
 RecorderADC rec;
 TrellisUI ui;
+ManifestCheck manifestStatus;
 
 volatile bool playing = false;      // latched by MIDI Start/Stop/Continue
 volatile uint8_t stepIndex = 0;     // which of the 8 columns is hot
@@ -72,6 +73,31 @@ static void serviceStutterDecay() {
     if (expire && (int32_t)(now - expire) >= 0) {
       audio.setLevel(r, DEFAULT_VOICE_LEVEL);
       stutterReleaseAt[r] = 0;
+    }
+  }
+}
+
+static void logManifest(const ManifestCheck& status) {
+  if (status.ok) {
+    Serial.print(F("[manifest] OK: "));
+  } else {
+    Serial.print(F("[manifest] WARN: "));
+  }
+  Serial.println(status.message);
+}
+
+static void handleFactoryResetCommand() {
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == 'f' || c == 'F') {
+      Serial.println(F("Factory demo reset requested"));
+      playing = false;
+      audio.stop();
+      auto restore = storage.restoreFactoryDemo();
+      Serial.println(restore.message);
+      manifestStatus = storage.checkManifest();
+      logManifest(manifestStatus);
+      audio.start();
     }
   }
 }
@@ -173,10 +199,19 @@ void handleMidi() {
 
 // ---------- Setup ----------
 void setup() {
+  Serial.begin(115200);
+  delay(10);
+  Serial.println(F("NTM4 Sampler boot"));
+
   usb_midi.setStringDescriptor("NTM4 Sampler");
   usb_midi.begin();
 
-  storage.begin();
+  if (!storage.begin()) {
+    Serial.println(F("Storage init failed; LittleFS unavailable"));
+    while (1) { delay(10); }
+  }
+  manifestStatus = storage.checkManifest();
+  logManifest(manifestStatus);
   ui.begin();
   audio.begin();
   audio.attachStorage(&storage);
@@ -195,6 +230,7 @@ void setup() {
 // ---------- Loop ----------
 void loop() {
   handleMidi();
+  handleFactoryResetCommand();
 
   // UI input
   int32_t ev = ui.pollEvent();
