@@ -7,6 +7,7 @@
 // the TinyUSB-backed Adafruit_USBD_MIDI instance you define in your sketch.
 
 #include <Adafruit_TinyUSB.h>
+#include <cstring>
 #include <type_traits>
 #include <utility>
 
@@ -36,6 +37,8 @@ using tinyusb_midi_packet_t = tud_midi_packet_t;
 #error "No TinyUSB MIDI packet type found; update MIDIUSB shim includes."
 #endif
 using midiEventPacket_t = tinyusb_midi_packet_t;
+static_assert(sizeof(midiEventPacket_t) == 4,
+              "USB MIDI packets must remain 4 bytes to expose the status byte");
 
 namespace detail {
 template <typename Midi, typename = void>
