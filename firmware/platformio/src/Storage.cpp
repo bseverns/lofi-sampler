@@ -78,6 +78,11 @@ void Storage::remove(const char* path) {
 }
 
 void Storage::ensureTree() {
+  // Demo images pre-seed the row folders. If they exist, leave everything alone
+  // so auditors can verify bytes without firmware side-effects.
+  if (lfs.exists(PATH_A) && lfs.exists(PATH_B) && lfs.exists(PATH_C) && lfs.exists(PATH_D)) {
+    return;
+  }
   lfs.mkdir(PATH_A);
   lfs.mkdir(PATH_B);
   lfs.mkdir(PATH_C);
