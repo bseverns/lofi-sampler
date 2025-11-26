@@ -87,6 +87,11 @@ docs/
    - Need a built-in loop but can’t ship WAVs? Run `python examples/gen_demo_row_A.py` to synthesize a factory row, then copy the emitted `.raw` files under `/A/` on the Trellis.
 5. **Clock:** Start your DAW *or* run `python examples/midi_clock_sender.py --out "NTM4 Sampler"` so the board sees MIDI **Clock** + Start. Toggle gates and listen.
 
+### Firmware CI loop (TinyUSB MIDI sanity check)
+- **Workflow file:** [`.github/workflows/firmware-build.yml`](.github/workflows/firmware-build.yml) keeps the NeoTrellis build honest on every PR. It installs PlatformIO, restores the `.pio` cache when hashes match, and runs `pio run -e adafruit_trellis_m4` so the TinyUSB MIDI shim + `handleMidi` parser keep compiling cleanly (read: MIDI clock integrity is enforced by robots, not vibes).
+- **Mimic it locally:** same command, same env. From repo root: `cd firmware/platformio && pio run -e adafruit_trellis_m4`. If the CI can build it, you can too; the cache just speeds up downloads.
+- **Debug trail:** CI captures `artifacts/firmware-build.log` as an artifact—snag it from a failed run to see which include or flag flaked out. Keep your own log by piping `pio run -e adafruit_trellis_m4 | tee artifacts/firmware-build.log` when poking at MIDI clock changes.
+
 ---
 
 ## Examples & DIY helpers
