@@ -144,10 +144,9 @@ static PadActionResult actionErase(uint8_t row, uint8_t col, const PadModifiers&
 // ---------- MIDI parsing ----------
 // USB TinyUSB surfaces raw USB-MIDI packets. We only care about realtime 0xF8..0xFC commands.
 void handleMidi() {
-  uint8_t packet[4];
   while (usb_midi.available()) {
-    usb_midi.read(packet);
-    uint8_t b0 = packet[1];
+    midiEventPacket_t packet = usb_midi.read();
+    uint8_t b0 = packet.byte[1];
     // Realtime messages can appear anywhere
     if (b0 == 0xF8) { // Timing Clock (24 PPQN)
       if (playing) {
