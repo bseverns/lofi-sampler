@@ -27,7 +27,7 @@ static const float DEFAULT_VOICE_LEVEL = 0.9f;
 static uint32_t stutterReleaseAt[4] = {0,0,0,0};
 
 // ---------- Helpers ----------
-static const char* rowPath(char row) {
+[[maybe_unused]] static const char* rowPath(char row) {
   switch(row) {
     case 'A': return PATH_A;
     case 'B': return PATH_B;
@@ -146,7 +146,8 @@ static PadActionResult actionErase(uint8_t row, uint8_t col, const PadModifiers&
 void handleMidi() {
   while (usb_midi.available()) {
     midiEventPacket_t packet = usb_midi.read();
-    uint8_t b0 = packet.byte[1];
+    const uint8_t *bytes = reinterpret_cast<const uint8_t *>(&packet);
+    uint8_t b0 = bytes[1];
     // Realtime messages can appear anywhere
     if (b0 == 0xF8) { // Timing Clock (24 PPQN)
       if (playing) {
