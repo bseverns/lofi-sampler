@@ -146,7 +146,7 @@ static PadActionResult actionErase(uint8_t row, uint8_t col, const PadModifiers&
 // USB TinyUSB surfaces raw USB-MIDI packets. We only care about realtime 0xF8..0xFC commands.
 void handleMidi() {
   while (usb_midi.available()) {
-    midiEventPacket_t packet = usb_midi.read();
+    midiEventPacket_t packet = MidiUSB.read();
     const uint8_t *bytes = reinterpret_cast<const uint8_t *>(&packet);
     uint8_t b0 = bytes[1];
     // Realtime messages can appear anywhere

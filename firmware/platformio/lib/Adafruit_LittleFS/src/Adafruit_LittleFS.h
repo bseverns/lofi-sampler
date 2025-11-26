@@ -40,6 +40,11 @@ class File {
   void close();
 
  private:
+  // Grant the filesystem driver access to the in-memory bookkeeping so the
+  // shim can stay lightweight without a bespoke allocator or opaque handle
+  // layer.
+  friend class LittleFS_QSPIFlash;
+
   struct MemoryFileRecord* record;
   size_t cursor;
   bool writable;

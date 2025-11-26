@@ -7,6 +7,7 @@
 // the TinyUSB-backed Adafruit_USBD_MIDI instance you define in your sketch.
 
 #include <Adafruit_TinyUSB.h>
+#include <cstdint>
 #include <cstring>
 #include <type_traits>
 #include <utility>
@@ -25,18 +26,32 @@
 // original MIDIUSB implementation (which would collide with TinyUSB symbols).
 extern Adafruit_USBD_MIDI usb_midi;
 
-// TinyUSB exposes a canonical 4-byte USB MIDI packet; newer releases export it
-// as midi_packet_t, while older drops used tud_midi_packet_t. Re-export the
-// available symbol so callers see a concrete type rather than a decltype()
-// deduction from whatever Adafruit_USBD_MIDI::read() happens to return.
-#if __has_include(<class/midi/midi_device.h>)
-using tinyusb_midi_packet_t = midi_packet_t;
-#elif __has_include(<tusb_midi.h>)
-using tinyusb_midi_packet_t = tud_midi_packet_t;
-#else
-#error "No TinyUSB MIDI packet type found; update MIDIUSB shim includes."
-#endif
-using midiEventPacket_t = tinyusb_midi_packet_t;
+// TinyUSB exposes a canonical 4-byte USB MIDI packet, but the concrete type
+// name has changed across releases. Prefer the return type of the TinyUSB MIDI
+// device when it is a 4-byte packet; otherwise fall back to a minimal
+// byte-for-byte struct so downstream code always has a concrete packet type.
+struct midi_packet_fallback_t {
+  uint8_t header;
+  uint8_t byte1;
+  uint8_t byte2;
+  uint8_t byte3;
+};
+
+using raw_usb_midi_packet_t = decltype(std::declval<Adafruit_USBD_MIDI &>().read());
+
+template <typename Packet, typename = void> struct midi_packet_or_fallback {
+  using type = midi_packet_fallback_t;
+};
+
+template <typename Packet>
+struct midi_packet_or_fallback<
+    Packet, typename std::enable_if<sizeof(Packet) == 4 &&
+                                    (std::is_class<Packet>::value ||
+                                     std::is_union<Packet>::value)>::type> {
+  using type = Packet;
+};
+
+using midiEventPacket_t = midi_packet_or_fallback<raw_usb_midi_packet_t>::type;
 static_assert(sizeof(midiEventPacket_t) == 4,
               "USB MIDI packets must remain 4 bytes to expose the status byte");
 
