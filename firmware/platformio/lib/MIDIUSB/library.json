@@ -1,0 +1,18 @@
+{
+  "name": "TinyUSB MIDIUSB Shim",
+  "version": "0.1.0",
+  "description": "Header-only compatibility wrapper that maps Arduino MIDIUSB calls onto Adafruit TinyUSB's MIDI device API.",
+  "keywords": ["midi", "usb", "tinyusb", "adafruit", "shim"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/lofi-sampler/project"
+  },
+  "frameworks": "arduino",
+  "platforms": ["atmelsam"],
+  "headers": ["MIDIUSB.h"],
+  "dependencies": [
+    {
+      "name": "Adafruit TinyUSB Library"
+    }
+  ]
+}
