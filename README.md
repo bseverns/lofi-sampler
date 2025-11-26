@@ -87,6 +87,20 @@ docs/
    - Need a built-in loop but can’t ship WAVs? Run `python examples/gen_demo_row_A.py` to synthesize a factory row, then copy the emitted `.raw` files under `/A/` on the Trellis.
 5. **Clock:** Start your DAW *or* run `python examples/midi_clock_sender.py --out "NTM4 Sampler"` so the board sees MIDI **Clock** + Start. Toggle gates and listen.
 
+### Demo manifest + escape hatch
+- The firmware now looks for a **`/manifest.json`** on boot and shouts the status over Serial (115200 baud). Missing manifest? You’ll see a `[manifest] WARN:` line so you know the demo image needs love.
+- Minimal manifest structure (one JSON array of absolute paths is enough):
+  ```json
+  {
+    "version": "demo-1",
+    "required": [
+      "/A/source.raw", "/A/A1.raw", "/A/A2.raw", "...", "/D/source.raw"
+    ]
+  }
+  ```
+  The parser is deliberately forgiving—it grabs any quoted string that looks like an absolute path—so feel free to sprinkle comments.
+- **Factory reset for testers:** open `pio device monitor` and press `f` (or `F`) to trigger a “factory demo” restore. The firmware will copy every path in the manifest from `/factory/<path>` back to the live root (e.g., `/factory/A/A1.raw` → `/A/A1.raw`). Ship your known-good slices under `/factory` in the LittleFS image and you get a one-key re-flash without rebuilding firmware.
+
 ### Firmware CI loop (TinyUSB MIDI sanity check)
 - **Workflow file:** [`.github/workflows/firmware-build.yml`](.github/workflows/firmware-build.yml) keeps the NeoTrellis build honest on every PR. It installs PlatformIO, restores the `.pio` cache when hashes match, and runs `pio run -e adafruit_trellis_m4` so the TinyUSB MIDI shim + `handleMidi` parser keep compiling cleanly (read: MIDI clock integrity is enforced by robots, not vibes).
 - **Mimic it locally:** same command, same env. From repo root: `cd firmware/platformio && pio run -e adafruit_trellis_m4`. If the CI can build it, you can too; the cache just speeds up downloads.

@@ -1,6 +1,16 @@
 
 #pragma once
 #include <Arduino.h>
+#include <vector>
+
+struct ManifestCheck {
+  bool manifestFound = false;   // true when manifest.json was present and parsed
+  bool filesPresent = false;    // true when every listed file exists
+  bool ok = false;              // shorthand for manifestFound && filesPresent
+  uint16_t missingCount = 0;    // how many files failed the existence check/copy
+  String version;               // optional version string pulled from the manifest
+  String message;               // human-readable diagnostic
+};
 
 class Storage {
 public:
@@ -25,6 +35,21 @@ public:
   // Ensure row folders exist
   void ensureTree();
 
+  // Probe the demo manifest (manifest.json) and confirm the listed files exist.
+  ManifestCheck checkManifest(const char* manifestPath = "/manifest.json");
+
+  // Attempt to repopulate the demo data from a bundled copy (default: /factory/*).
+  ManifestCheck restoreFactoryDemo(const char* manifestPath = "/manifest.json",
+                                   const char* factoryPrefix = "/factory");
+
 private:
+  bool readFileToString(const char* path, String& out);
+  bool parseManifest(const String& payload, std::vector<String>& required, String& version);
+  void buildDefaultRequired(std::vector<String>& required);
+  bool fileExists(const char* path);
+  uint16_t countMissing(const std::vector<String>& required);
+  bool copyFile(const char* src, const char* dst);
+  void ensureParentDir(const String& path);
+
   bool mounted = false;
 };
