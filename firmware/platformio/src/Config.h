@@ -11,7 +11,8 @@ static const uint8_t  CLOCKS_PER_STEP  = (MIDI_PPQN * BEATS_PER_BAR) / STEPS_PER
 
 // ---------- Recording ----------
 // 2.6 s ≈ 114.7 KB capture + 57.3 KB of voice buffers ≈ 172.0 KB audio RAM
-static const float    MAX_RECORD_SECONDS = 2.6f;
+//5.2 s = 229.4 KB capture + 114.6 KB of voice buffers = 344.0 KB audio RAM
+static const float    MAX_RECORD_SECONDS = 5.2f;
 static const uint32_t MAX_RECORD_SAMPLES = (uint32_t)(SAMPLE_RATE_HZ * MAX_RECORD_SECONDS);
 
 // ---------- Pins ----------
