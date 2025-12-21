@@ -29,6 +29,12 @@ public:
   // Write raw buffer to path
   bool writeRaw(const char* path, const int16_t* src, uint32_t samples);
 
+  // Write /<Row>/source.raw while copying the previous take to source_prev.raw.
+  bool writeSourceWithBackup(char row, const int16_t* src, uint32_t samples);
+
+  // Swap /<Row>/source_prev.raw back into source.raw (and vice-versa).
+  bool swapInPreviousSource(char row);
+
   // Remove a file if exists
   void remove(const char* path);
 
@@ -47,6 +53,9 @@ private:
   bool parseManifest(const String& payload, std::vector<String>& required, String& version);
   void buildDefaultRequired(std::vector<String>& required);
   bool fileExists(const char* path);
+  bool copyIfExists(const String& src, const String& dst);
+  String sourcePathFor(char row) const;
+  String prevSourcePathFor(char row) const;
   uint16_t countMissing(const std::vector<String>& required);
   bool copyFile(const char* src, const char* dst);
   void ensureParentDir(const String& path);

@@ -26,13 +26,13 @@ This build targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **N
 - **4 voices (rows A–D):** one sample per row, sliced into A1..A8, etc.
 - **USB MIDI Clock** (24 PPQN) + Start/Stop/Continue → transport.
 - **Multi-button controls:**
-  - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in).
+  - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in). Tap to replace the take; **hold** the row with Shift to overdub on release.
   - **Shift + active gate pad** → **Stutter** that slice momentarily at a boosted velocity (no gate toggle).
-  - **Alt (col 7) + Row pad** → **Erase** row’s slices.
-  - **Shift + Alt + Row pad** → **Reslice** the row by reloading `source.raw` off flash and carving new equal 8ths (no gate changes).
+  - **Alt (col 7) + Row pad** → **Undo/Restore**: swap `/row/source_prev.raw` back in and reslice; if there’s no backup, blank the row.
+  - **Shift + Alt + Row pad** → **Reslice** the row by reloading the current (or restored) `source.raw` off flash and carving new equal 8ths (no gate changes).
   - **Normal taps** → toggle gate at that column for that row.
 - **Audio out:** DAC A0 mirrored to A1; timer‑driven at 22,050 Hz, 16‑bit signed.
-- **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step.
+- **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step, and a per-row `source_prev.raw` safety net for undo/reslice.
 - **Live resampling:** 2.6 s default (≈115 KB capture). On stop, auto‑slice → 8 raw files.
 
 > This repo purposely stores **RAW** 16‑bit little‑endian PCM (`.raw`) to avoid WAV parsing on-device. Use the `tools/wav_to_raw_slices.py` helper or record directly on the Trellis.
@@ -124,7 +124,9 @@ docs/
 
 ## Notes
 - **RAW format:** 16‑bit signed little‑endian, mono, 22,050 Hz.
+- **Prev-take safety net:** Each row keeps `source.raw` plus `source_prev.raw`. Alt+Row swaps the previous take back in and reslices instead of deleting; Shift+Alt reslice will fall back to the backup if the current source goes missing.
 - **Max record secs:** Adjust in `Config.h` (RAM‑bound).
+- **Overdub math:** Shift+hold overdubs mix the fresh capture onto the existing take in 256-sample chunks inside the original capture buffer, so the RAM footprint still obeys the `MAX_RECORD_SECONDS` table.
 - **Playback:** On each step, active rows preload that step’s raw slice from QSPI into a small RAM buffer; ISR mixes 4 voices and writes DAC.
 - **CPU budget:** The ISR only mixes 4 int16 samples → saturation → DAC write. All file I/O happens in the main loop between steps.
 - **AudioEngine etiquette:** `service()` runs in the foreground, drains a job queue, and tops off circular buffers in flash-sized chunks. The 22.05 kHz ISR only ever reads already-primed samples + gain ramps. If you add new work, make it a job and let the loop babysit it; the interrupt stays allergic to anything slower than a multiply. New to the engine? [Read the flow notes + diagram.](docs/audio-engine.md)
@@ -164,7 +166,7 @@ When in doubt, keep heavy lifting in `service()` and treat the ISR like a sacred
 
 ## Control Atlas (pad combos vs. firmware branches)
 
-If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/arduino/lofi_sampler/lofi_sampler.ino`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code (column numbers here are the physical **1–8** labels; firmware counts from 0):
+If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/platformio/src/main.cpp`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code (column numbers here are the physical **1–8** labels; firmware counts from 0):
 
 Mini map so you can visualize the modifier rails while you read code (Alt lives on column **7**, Shift on **8**):
 
@@ -178,13 +180,14 @@ Rows A–D:   [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
 
 | Pad combo | `loop()` branch | Expected side effects | See in code |
 | --- | --- | --- | --- |
-| **Tap any step (cols 1–6) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/arduino/lofi_sampler/lofi_sampler.ino#L193-L210) |
-| **Hold Alt column (col 7)** | `if (modifierTracker.handlePress(r, c)) { /* latched Alt for this row */ }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. | [`ModifierTracker::handlePress` (Alt latch)](firmware/arduino/lofi_sampler/PadInput.cpp#L18-L23) |
-| **Hold Shift column (col 8)** | `if (modifierTracker.handlePress(r, c)) { /* latched Shift for this row */ }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. | [`ModifierTracker::handlePress` (Shift latch)](firmware/arduino/lofi_sampler/PadInput.cpp#L24-L27) |
-| **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. | [`actionRecord`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L111-L127) |
-| **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” | [`actionErase`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L129-L140) |
-| **Shift + Alt + Row pad** | `if (!mods.alt || !mods.shift) return NoMatch; return resliceRow(row);` | Reloads the saved `/[Row]/source.raw` and re-slices it into eight fresh RAW files without touching gates. | [`actionReslice`](firmware/arduino/lofi_sampler/lofi_sampler.ino#L79-L88) |
-| **Release Alt/Shift** | `modifierTracker.handleRelease(r, c);` | Resets the modifier flags so normal tapping resumes. | [`ModifierTracker::handleRelease`](firmware/arduino/lofi_sampler/PadInput.cpp#L31-L39) |
+| **Tap any step (cols 1–6) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/platformio/src/main.cpp) |
+| **Hold Alt column (col 7)** | `if (modifierTracker.handlePress(r, c)) { /* latched Alt for this row */ }` | Latches the per-row Alt modifier flag so the very next pad press runs the undo/erase logic. Releases clear the flag. | [`ModifierTracker::handlePress` (Alt latch)](firmware/platformio/src/PadInput.cpp) |
+| **Hold Shift column (col 8)** | `if (modifierTracker.handlePress(r, c)) { /* latched Shift for this row */ }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. | [`ModifierTracker::handlePress` (Shift latch)](firmware/platformio/src/PadInput.cpp) |
+| **Shift + Row pad (tap)** | `actionRecord` toggles `rec.start()/rec.stop()` and writes new slices. | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files (backing up the previous take). | [`actionRecord`](firmware/platformio/src/main.cpp) |
+| **Shift + Row pad (hold, release ≥250 ms)** | Release branch of `loop()` runs `commitRecording(...Overdub)`. | Captures while held, then overdubs the buffer onto the existing take on release and slices the mix. | [`commitRecording` + `overdubAndSlice`](firmware/platformio/src/main.cpp) |
+| **Alt + Row pad** | `actionErase` tries `swapInPreviousSource()` before nuking files. | Swaps `/row/source_prev.raw` back in and reslices. If no backup exists, deletes the row’s slices and sources to blank it. | [`actionErase`](firmware/platformio/src/main.cpp) |
+| **Shift + Alt + Row pad** | `actionReslice` reloads a source (current or swapped-in previous) and rewrites slices. | Reslices without touching gates; will fall back to the previous take if `source.raw` is missing. | [`actionReslice` / `resliceRow`](firmware/platformio/src/main.cpp) |
+| **Release Alt/Shift** | `modifierTracker.handleRelease(r, c);` | Resets the modifier flags so normal tapping resumes. | [`ModifierTracker::handleRelease`](firmware/platformio/src/PadInput.cpp) |
 
 Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
 

@@ -17,7 +17,7 @@ static String makePath(char row, uint8_t idx) {
   return p;
 }
 
-bool Slicer::writeEight(const char* rowLetter, const int16_t* samples, uint32_t count) {
+bool Slicer::writeEight(const char* rowLetter, const int16_t* samples, uint32_t count, bool backupSource) {
   if (!rowLetter || !rowLetter[0]) return false;
   if (!samples) return false;
   char row = rowLetter[0];
@@ -56,7 +56,12 @@ bool Slicer::writeEight(const char* rowLetter, const int16_t* samples, uint32_t 
   Serial.println();
 #endif
   // also write source.raw
-  String src = String("/") + row + "/source.raw";
-  storage.writeRaw(src.c_str(), samples, count);
-  return true;
+  bool ok = false;
+  if (backupSource) {
+    ok = storage.writeSourceWithBackup(row, samples, count);
+  } else {
+    String src = String("/") + row + "/source.raw";
+    ok = storage.writeRaw(src.c_str(), samples, count);
+  }
+  return ok;
 }
