@@ -28,6 +28,12 @@ public:
   // debug level
   void setLevel(uint8_t voice, float level);
 
+  // FX triggers (queued so the ISR never builds tables on the fly)
+  void triggerFilterSweep(uint8_t voice);
+  void triggerBitcrush(uint8_t voice);
+  void triggerDrive(uint8_t voice);
+  void clearFx(uint8_t voice);
+
   // Request a state dump for a voice (queued to avoid ISR clashes).
   void requestDiagnostics(uint8_t voice);
 
@@ -47,6 +53,10 @@ private:
     Preload,
     Fade,
     Diagnostics,
+    FilterSweep,
+    Bitcrush,
+    Drive,
+    FxClear,
   };
 
   struct Job {
@@ -64,10 +74,16 @@ private:
   void handlePreload(const Job& job);
   void handleFade(const Job& job);
   void handleDiagnostics(const Job& job);
+  void handleFilterSweep(const Job& job);
+  void handleBitcrush(const Job& job);
+  void handleDrive(const Job& job);
+  void handleFxClear(const Job& job);
   void pumpStreams();
   void pumpGains();
+  void pumpEffects();
   void cleanupVoice(uint8_t voice);
   void armGainRamp(uint8_t voice, float target, uint16_t frames);
+  void resetFx(uint8_t voice);
 
   Storage* storage = nullptr;
   volatile bool running = false;
@@ -98,4 +114,25 @@ private:
   float    vgainDesired[4] = {0.9f,0.9f,0.9f,0.9f};
   float    vgainStep[4]   = {0,0,0,0};
   uint16_t vgainFrames[4] = {0,0,0,0};
+
+  // FX tables are precomputed in handleJob() so the ISR only lifts current slots.
+  static constexpr uint16_t FX_TABLE_SIZE = 128;
+  float filterTable[4][FX_TABLE_SIZE];
+  float driveTable[4][FX_TABLE_SIZE];
+  uint16_t crushTable[4][FX_TABLE_SIZE];
+
+  uint16_t filterLen[4] = {0,0,0,0};
+  uint16_t driveLen[4]  = {0,0,0,0};
+  uint16_t crushLen[4]  = {0,0,0,0};
+
+  volatile uint16_t filterIndex[4] = {0,0,0,0};
+  volatile uint16_t driveIndex[4]  = {0,0,0,0};
+  volatile uint16_t crushIndex[4]  = {0,0,0,0};
+
+  volatile float    filterCurrent[4] = {1.0f,1.0f,1.0f,1.0f};
+  volatile float    driveCurrent[4]  = {1.0f,1.0f,1.0f,1.0f};
+  volatile uint16_t crushCurrentHold[4] = {0,0,0,0};
+  volatile uint16_t crushCountdown[4]   = {0,0,0,0};
+  int16_t           crushLatchedSample[4] = {0,0,0,0};
+  uint8_t           crushShift[4] = {0,0,0,0};
 };
