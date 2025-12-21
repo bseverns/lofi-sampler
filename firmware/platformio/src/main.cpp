@@ -241,7 +241,7 @@ static PadActionResult actionReslice(uint8_t row, uint8_t col, const PadModifier
 static PadActionResult actionFx(uint8_t row, uint8_t col, const PadModifiers& mods) {
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.alt || !mods.shift) return PadActionResult::NoMatch;
-  if (col >= COL_ALT) return PadActionResult::NoMatch; // ignore modifier columns
+  if (col >= STEPS_PER_BAR) return PadActionResult::NoMatch;
 
   switch (col) {
     case 0:
@@ -264,7 +264,7 @@ static PadActionResult actionFx(uint8_t row, uint8_t col, const PadModifiers& mo
 static PadActionResult actionCycleVelocity(uint8_t row, uint8_t col, const PadModifiers& mods) {
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
-  if (col >= COL_ALT) return PadActionResult::NoMatch;
+  if (col >= STEPS_PER_BAR) return PadActionResult::NoMatch;
   StepState& step = gates[row][col];
   if (!step.gate) return PadActionResult::NoMatch;
   step.velocity = nextFromLanes(step.velocity, VELOCITY_LANES, sizeof(VELOCITY_LANES));
@@ -275,7 +275,7 @@ static PadActionResult actionCycleVelocity(uint8_t row, uint8_t col, const PadMo
 static PadActionResult actionProbability(uint8_t row, uint8_t col, const PadModifiers& mods) {
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.alt || mods.shift) return PadActionResult::NoMatch;
-  if (col >= COL_ALT) return PadActionResult::NoMatch;
+  if (col >= STEPS_PER_BAR) return PadActionResult::NoMatch;
   StepState& step = gates[row][col];
   if (!step.gate) return PadActionResult::NoMatch;
   step.probability = nextFromLanes(step.probability, PROBABILITY_LANES, sizeof(PROBABILITY_LANES));
@@ -443,7 +443,7 @@ void loop() {
       }
     } else {
       // Overdub gesture: Shift + hold a row, then release to commit the mix.
-      if (rec.isRecording() && recordHoldCandidate && recordingRow == r && c < COL_ALT) {
+      if (rec.isRecording() && recordHoldCandidate && recordingRow == r && c < STEPS_PER_BAR) {
         PadModifiers mods = modifierTracker.modifiersFor(r);
         if (mods.shift && (millis() - recordStartMillis) >= OVERDUB_HOLD_MS) {
           uint32_t n = rec.stop();
@@ -463,5 +463,8 @@ void loop() {
   serviceStutterDecay();
 
   audio.service();
+  for (uint8_t r = 0; r < 4; ++r) {
+    ui.setModifiers(r, modifierTracker.modifiersFor(r));
+  }
   ui.draw(playing ? stepIndex : 255, rec.isRecording() ? 0 : -1);
 }
