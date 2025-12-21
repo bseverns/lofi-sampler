@@ -166,7 +166,7 @@ When in doubt, keep heavy lifting in `service()` and treat the ISR like a sacred
 
 ## Control Atlas (pad combos vs. firmware branches)
 
-If you’re spelunking the UI logic, every pad mash ends up in the `loop()` state machine inside `firmware/platformio/src/main.cpp`. Here’s the cheat-sheet so you can keep one eye on the Trellis and one eye on the code (column numbers here are the physical **1–8** labels; firmware counts from 0):
+The live pad grid still funnels through the `loop()` state machine in [`firmware/platformio/src/main.cpp`](firmware/platformio/src/main.cpp). Here’s the refreshed cheat sheet (columns shown as the physical **1–8** labels; firmware counts from 0):
 
 Mini map so you can visualize the modifier rails while you read code (Alt lives on column **7**, Shift on **8**):
 
@@ -180,15 +180,18 @@ Rows A–D:   [ ] [ ] [ ] [ ] [ ] [ ] [▲]   [▲]
 
 | Pad combo | `loop()` branch | Expected side effects | See in code |
 | --- | --- | --- | --- |
-| **Tap any step (cols 1–6) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/platformio/src/main.cpp) |
-| **Hold Alt column (col 7)** | `if (modifierTracker.handlePress(r, c)) { /* latched Alt for this row */ }` | Latches the per-row Alt modifier flag so the very next pad press runs the undo/erase logic. Releases clear the flag. | [`ModifierTracker::handlePress` (Alt latch)](firmware/platformio/src/PadInput.cpp) |
-| **Hold Shift column (col 8)** | `if (modifierTracker.handlePress(r, c)) { /* latched Shift for this row */ }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. | [`ModifierTracker::handlePress` (Shift latch)](firmware/platformio/src/PadInput.cpp) |
-| **Shift + Row pad (tap)** | `actionRecord` toggles `rec.start()/rec.stop()` and writes new slices. | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files (backing up the previous take). | [`actionRecord`](firmware/platformio/src/main.cpp) |
-| **Shift + Row pad (hold, release ≥250 ms)** | Release branch of `loop()` runs `commitRecording(...Overdub)`. | Captures while held, then overdubs the buffer onto the existing take on release and slices the mix. | [`commitRecording` + `overdubAndSlice`](firmware/platformio/src/main.cpp) |
-| **Alt + Row pad** | `actionErase` tries `swapInPreviousSource()` before nuking files. | Swaps `/row/source_prev.raw` back in and reslices. If no backup exists, deletes the row’s slices and sources to blank it. | [`actionErase`](firmware/platformio/src/main.cpp) |
-| **Shift + Alt + Row pad** | `actionReslice` reloads a source (current or swapped-in previous) and rewrites slices. | Reslices without touching gates; will fall back to the previous take if `source.raw` is missing. | [`actionReslice` / `resliceRow`](firmware/platformio/src/main.cpp) |
-| **Release Alt/Shift** | `modifierTracker.handleRelease(r, c);` | Resets the modifier flags so normal tapping resumes. | [`ModifierTracker::handleRelease`](firmware/platformio/src/PadInput.cpp) |
+| **Tap any step (cols 1–6) with no modifiers** | `else { gates[r][c] = !gates[r][c]; ui.setGate(...); }` | Toggles the gate latch for that row/column and repaints the LED immediately. | [`loop()` fallback toggle](firmware/platformio/src/main.cpp#L256-L289) |
+| **Hold Alt column (col 7)** | `if (modifierTracker.handlePress(r, c)) { /* latched Alt for this row */ }` | Latches the per-row Alt modifier flag so the very next pad press runs the erase logic. Releases clear the flag. | [`ModifierTracker::handlePress` (Alt latch)](firmware/platformio/src/PadInput.cpp#L18-L27) |
+| **Hold Shift column (col 8)** | `if (modifierTracker.handlePress(r, c)) { /* latched Shift for this row */ }` | Latches the per-row Shift modifier flag so the next pad press arms record/reslice behaviors. Releases clear the flag. | [`ModifierTracker::handlePress` (Shift latch)](firmware/platformio/src/PadInput.cpp#L18-L27) |
+| **Shift + Row pad** | `else if (shift) { ... rec.start()/rec.stop(); Slicer::writeEight(...); }` | Starts live recording on first hit; on the second hit stops capture, writes `/[Row]/source.raw`, then slices + commits eight RAW files. | [`actionRecord`](firmware/platformio/src/main.cpp#L163-L179) |
+| **Alt + Row pad** | `else if (alt) { ... storage.remove(...); }` | Nukes every slice file (`R1.raw…R8.raw`) and the row’s `source.raw`. Think of it as “panic/blank this row.” | [`actionErase`](firmware/platformio/src/main.cpp#L181-L193) |
+| **Shift + Alt + Step 1** | `audio.triggerFilterSweep(row);` | Enqueues a pre-baked filter sweep table for that voice; `service()` advances it while the ISR only multiplies samples by the current slot. Depth/rate live in `Config.h`. | [`actionFx`](firmware/platformio/src/main.cpp#L118-L140), [`handleFilterSweep`](firmware/platformio/src/AudioEngine.cpp#L368-L383) |
+| **Shift + Alt + Step 2** | `audio.triggerBitcrush(row);` | Arms a bitcrush mask + sample-and-hold pattern so the ISR only needs to mask and reuse the latched sample. Depth/rate live in `Config.h`. | [`actionFx`](firmware/platformio/src/main.cpp#L118-L140), [`handleBitcrush`](firmware/platformio/src/AudioEngine.cpp#L385-L402) |
+| **Shift + Alt + Step 3** | `audio.triggerDrive(row);` | Bakes a drive swell table (soft-knee gain push) and loops it per `service()` tick. The ISR just pulls the current multiplier. | [`actionFx`](firmware/platformio/src/main.cpp#L118-L140), [`handleDrive`](firmware/platformio/src/AudioEngine.cpp#L404-L418) |
+| **Shift + Alt + Step 4** | `audio.clearFx(row);` | Resets the FX tables for that voice so you can go back to clean playback without waiting for a new slice. | [`actionFx`](firmware/platformio/src/main.cpp#L118-L140), [`resetFx`](firmware/platformio/src/AudioEngine.cpp#L622-L635) |
+| **Shift + Alt + Step 6** | `return resliceRow(row);` | Reloads the saved `/[Row]/source.raw` and re-slices it into eight fresh RAW files without touching gates. | [`actionReslice`](firmware/platformio/src/main.cpp#L108-L115) |
+| **Release Alt/Shift** | `modifierTracker.handleRelease(r, c);` | Resets the modifier flags so normal tapping resumes. | [`ModifierTracker::handleRelease`](firmware/platformio/src/PadInput.cpp#L31-L42) |
 
-Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes.
+Need to see how those branches sync with USB clocking, storage writes, and the DAC ISR? Jump to the [Timing Swim-Lane](docs/workflow.md#timing-swim-lane-midi-vs-ui-vs-storage-vs-dac) notes. Want to tweak FX feel? `Config.h` now exposes `FILTER_SWEEP_DEPTH`/`FILTER_SWEEP_TABLE_SIZE`, `BITCRUSH_DEPTH_BITS`/`BITCRUSH_RATE_TABLE`, and `DRIVE_DEPTH_MULT`/`DRIVE_SWELL_TABLE` so you can reshape the lookup tables without spelunking the ISR.
 
 Ready to riff on new modes or effects? Peep [CONTRIBUTING.md](CONTRIBUTING.md) for the house style + testing checklist.

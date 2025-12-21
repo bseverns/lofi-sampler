@@ -182,13 +182,37 @@ static void handleFactoryResetCommand() {
 
 // SHIFT+ALT combo: reload the saved source + carve new slices without touching gates.
 static PadActionResult actionReslice(uint8_t row, uint8_t col, const PadModifiers& mods) {
-  (void)col;
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.alt || !mods.shift) return PadActionResult::NoMatch;
+  if (col != (STEPS_PER_BAR - 3)) return PadActionResult::NoMatch; // map to the last "normal" step pad
   if (resliceRow(row)) {
     return PadActionResult::MatchedStop;
   }
   return PadActionResult::MatchedStop;
+}
+
+// SHIFT+ALT+step 1..4: performance FX (pre-baked lookup tables in AudioEngine)
+static PadActionResult actionFx(uint8_t row, uint8_t col, const PadModifiers& mods) {
+  if (row >= 4) return PadActionResult::NoMatch;
+  if (!mods.alt || !mods.shift) return PadActionResult::NoMatch;
+  if (col >= COL_ALT) return PadActionResult::NoMatch; // ignore modifier columns
+
+  switch (col) {
+    case 0:
+      audio.triggerFilterSweep(row);
+      return PadActionResult::MatchedStop;
+    case 1:
+      audio.triggerBitcrush(row);
+      return PadActionResult::MatchedStop;
+    case 2:
+      audio.triggerDrive(row);
+      return PadActionResult::MatchedStop;
+    case 3:
+      audio.clearFx(row);
+      return PadActionResult::MatchedStop;
+    default:
+      return PadActionResult::NoMatch;
+  }
 }
 
 // SHIFT combo riff: momentary "manual retrigger" that leans on whatever gate is already live.
@@ -302,6 +326,7 @@ void setup() {
 
   modifierTracker.reset();
   resetPadActionRegistry();
+  registerPadAction(actionFx);
   registerPadAction(actionReslice);
   registerPadAction(actionStutter);
   registerPadAction(actionRecord);
