@@ -1,6 +1,7 @@
 #include "AudioEngine.h"
 #include "Storage.h"
 #include <Adafruit_ZeroTimer.h>
+#include <math.h>
 #include <string.h>
 
 /*
@@ -51,6 +52,18 @@ bool AudioEngine::begin() {
     vgainDesired[v] = 0.9f;
     vgainStep[v] = 0.0f;
     vgainFrames[v] = 0;
+    filterLen[v] = 0;
+    driveLen[v] = 0;
+    crushLen[v] = 0;
+    filterIndex[v] = 0;
+    driveIndex[v] = 0;
+    crushIndex[v] = 0;
+    filterCurrent[v] = 1.0f;
+    driveCurrent[v] = 1.0f;
+    crushCurrentHold[v] = 0;
+    crushCountdown[v] = 0;
+    crushLatchedSample[v] = 0;
+    crushShift[v] = 0;
   }
 
   // Configure ZeroTimer to fire at SAMPLE_RATE_HZ
@@ -81,6 +94,44 @@ void AudioEngine::setLevel(uint8_t v, float lv) {
   if (!enqueueJob(job)) {
     armGainRamp(v, lv, DEFAULT_FADE_FRAMES);
   }
+}
+
+void AudioEngine::triggerFilterSweep(uint8_t voice) {
+  if (voice >= 4) return;
+  Job job;
+  job.type = JobType::FilterSweep;
+  job.voice = voice;
+  job.value = FILTER_SWEEP_DEPTH;
+  job.frames = FILTER_SWEEP_TABLE_SIZE;
+  enqueueJob(job);
+}
+
+void AudioEngine::triggerBitcrush(uint8_t voice) {
+  if (voice >= 4) return;
+  Job job;
+  job.type = JobType::Bitcrush;
+  job.voice = voice;
+  job.value = BITCRUSH_DEPTH_BITS;
+  job.frames = BITCRUSH_RATE_TABLE;
+  enqueueJob(job);
+}
+
+void AudioEngine::triggerDrive(uint8_t voice) {
+  if (voice >= 4) return;
+  Job job;
+  job.type = JobType::Drive;
+  job.voice = voice;
+  job.value = DRIVE_DEPTH_MULT;
+  job.frames = DRIVE_SWELL_TABLE;
+  enqueueJob(job);
+}
+
+void AudioEngine::clearFx(uint8_t voice) {
+  if (voice >= 4) return;
+  Job job;
+  job.type = JobType::FxClear;
+  job.voice = voice;
+  enqueueJob(job);
 }
 
 void AudioEngine::requestDiagnostics(uint8_t voice) {
@@ -131,6 +182,7 @@ void AudioEngine::service() {
   // After the paperwork, keep the buffers primed and gains gliding.
   pumpStreams();
   pumpGains();
+  pumpEffects();
 
   // Voices that drained out get recycled back to a clean slate.
   for (uint8_t v = 0; v < 4; ++v) {
@@ -157,7 +209,22 @@ void AudioEngine::isr() {
     uint32_t readIdx = vpos[v];
     // Buffers are pre-filled with signed 16-bit PCM; no disk reads here.
     int32_t sample = vbuf[v][readIdx];
-    mix += (int32_t)(sample * vgainCurrent[v]);
+    float filtered = sample * filterCurrent[v];
+    float driven = filtered * driveCurrent[v];
+    int32_t effected = (int32_t)driven;
+
+    uint16_t hold = crushCurrentHold[v];
+    if (hold > 0) {
+      if (crushCountdown[v] == 0) {
+        crushLatchedSample[v] = (int16_t)((effected >> crushShift[v]) << crushShift[v]);
+        crushCountdown[v] = hold;
+      } else {
+        crushCountdown[v]--;
+      }
+      effected = crushLatchedSample[v];
+    }
+
+    mix += (int32_t)(effected * vgainCurrent[v]);
     readIdx++;
     if (readIdx >= BUF_SAMPLES) readIdx = 0;
     vpos[v] = readIdx;
@@ -208,6 +275,18 @@ void AudioEngine::handleJob(const Job& job) {
       break;
     case JobType::Diagnostics:
       handleDiagnostics(job);
+      break;
+    case JobType::FilterSweep:
+      handleFilterSweep(job);
+      break;
+    case JobType::Bitcrush:
+      handleBitcrush(job);
+      break;
+    case JobType::Drive:
+      handleDrive(job);
+      break;
+    case JobType::FxClear:
+      handleFxClear(job);
       break;
     case JobType::None:
     default:
@@ -284,6 +363,64 @@ void AudioEngine::handleDiagnostics(const Job& job) {
   Serial.println((unsigned long)voiceTotalSamples[voice]);
 #endif
   voiceDiagPending[voice] = false;
+}
+
+void AudioEngine::handleFilterSweep(const Job& job) {
+  uint8_t voice = job.voice;
+  if (voice >= 4) return;
+  uint16_t len = job.frames;
+  if (len == 0 || len > FX_TABLE_SIZE) len = FX_TABLE_SIZE;
+  float depth = job.value;
+  if (depth < 0.0f) depth = 0.0f;
+  if (depth > 1.0f) depth = 1.0f;
+  for (uint16_t i = 0; i < len; ++i) {
+    float t = (float)i / (float)len;
+    float lfo = 0.5f - 0.5f * cosf(2.0f * PI * t); // 0..1 raised sine bump
+    filterTable[voice][i] = 1.0f - (depth * lfo);
+  }
+  filterLen[voice] = len;
+  filterIndex[voice] = 0;
+}
+
+void AudioEngine::handleBitcrush(const Job& job) {
+  uint8_t voice = job.voice;
+  if (voice >= 4) return;
+  uint16_t len = job.frames;
+  if (len == 0 || len > FX_TABLE_SIZE) len = FX_TABLE_SIZE;
+  uint8_t bits = (job.value <= 0.0f) ? BITCRUSH_DEPTH_BITS : (uint8_t)job.value;
+  if (bits > 15) bits = 15;
+  if (bits < 4) bits = 4;
+  crushShift[voice] = (uint8_t)(16u - bits);
+  for (uint16_t i = 0; i < len; ++i) {
+    float t = (float)i / (float)len;
+    uint16_t hold = 1u + (uint16_t)(8.0f * (0.2f + 0.8f * sinf(PI * t)));
+    crushTable[voice][i] = hold;
+  }
+  crushLen[voice] = len;
+  crushIndex[voice] = 0;
+  crushCountdown[voice] = 0;
+}
+
+void AudioEngine::handleDrive(const Job& job) {
+  uint8_t voice = job.voice;
+  if (voice >= 4) return;
+  uint16_t len = job.frames;
+  if (len == 0 || len > FX_TABLE_SIZE) len = FX_TABLE_SIZE;
+  float depth = job.value <= 0.0f ? DRIVE_DEPTH_MULT : job.value;
+  if (depth < 1.0f) depth = 1.0f;
+  for (uint16_t i = 0; i < len; ++i) {
+    float t = (float)i / (float)len;
+    float rise = 1.0f + (depth - 1.0f) * (0.5f - 0.5f * cosf(2.0f * PI * t));
+    driveTable[voice][i] = rise;
+  }
+  driveLen[voice] = len;
+  driveIndex[voice] = 0;
+}
+
+void AudioEngine::handleFxClear(const Job& job) {
+  (void)job;
+  uint8_t voice = job.voice;
+  resetFx(voice);
 }
 
 void AudioEngine::pumpStreams() {
@@ -389,6 +526,47 @@ void AudioEngine::pumpGains() {
   }
 }
 
+void AudioEngine::pumpEffects() {
+  for (uint8_t v = 0; v < 4; ++v) {
+    float filt = 1.0f;
+    float drv = 1.0f;
+    uint16_t crushHold = 0;
+
+    if (filterLen[v] > 0) {
+      uint16_t idx = filterIndex[v];
+      filt = filterTable[v][idx];
+      idx++;
+      if (idx >= filterLen[v]) idx = 0;
+      filterIndex[v] = idx;
+    }
+
+    if (driveLen[v] > 0) {
+      uint16_t idx = driveIndex[v];
+      drv = driveTable[v][idx];
+      idx++;
+      if (idx >= driveLen[v]) idx = 0;
+      driveIndex[v] = idx;
+    }
+
+    if (crushLen[v] > 0) {
+      uint16_t idx = crushIndex[v];
+      crushHold = crushTable[v][idx];
+      idx++;
+      if (idx >= crushLen[v]) idx = 0;
+      crushIndex[v] = idx;
+    }
+
+    noInterrupts();
+    filterCurrent[v] = filt;
+    driveCurrent[v] = drv;
+    crushCurrentHold[v] = crushHold;
+    if (crushHold == 0) {
+      crushCountdown[v] = 0;
+    }
+    interrupts();
+  }
+}
+
 void AudioEngine::cleanupVoice(uint8_t voice) {
   uint32_t avail;
   noInterrupts();
@@ -410,6 +588,7 @@ void AudioEngine::cleanupVoice(uint8_t voice) {
     vgainStep[voice] = 0.0f;
     vgainFrames[voice] = 0;
     voiceDraining[voice] = false;
+    resetFx(voice);
 
     noInterrupts();
     vpos[voice] = 0;
@@ -438,4 +617,19 @@ void AudioEngine::armGainRamp(uint8_t voice, float target, uint16_t frames) {
   }
   vgainFrames[voice] = frames;
   vgainStep[voice] = (target - vgainCurrent[voice]) / (float)frames;
+}
+
+void AudioEngine::resetFx(uint8_t voice) {
+  if (voice >= 4) return;
+  filterLen[voice] = 0;
+  driveLen[voice] = 0;
+  crushLen[voice] = 0;
+  filterIndex[voice] = 0;
+  driveIndex[voice] = 0;
+  crushIndex[voice] = 0;
+  filterCurrent[voice] = 1.0f;
+  driveCurrent[voice] = 1.0f;
+  crushCurrentHold[voice] = 0;
+  crushCountdown[voice] = 0;
+  crushLatchedSample[voice] = 0;
 }

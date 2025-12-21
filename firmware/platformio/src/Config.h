@@ -9,6 +9,19 @@ static const uint8_t  BEATS_PER_BAR    = 4;
 static const uint8_t  MIDI_PPQN        = 24;         // USB MIDI Clock
 static const uint8_t  CLOCKS_PER_STEP  = (MIDI_PPQN * BEATS_PER_BAR) / STEPS_PER_BAR; // 12
 
+// ---------- FX (live performance macros) ----------
+// Filter sweeps ride a gentle sine LFO between 1.0 and (1.0 - depth) over the table length.
+static const float    FILTER_SWEEP_DEPTH      = 0.35f;
+static const uint16_t FILTER_SWEEP_TABLE_SIZE = 96;   // how many service() ticks in one cycle
+
+// Bitcrush keeps a simple S+H gate and a bit-mask precomputed so the ISR only has to mask + hold.
+static const uint8_t  BITCRUSH_DEPTH_BITS     = 8;    // 16-bit PCM target depth (8 = classic crunchy)
+static const uint16_t BITCRUSH_RATE_TABLE     = 48;   // how many hold durations to pre-bake per trigger
+
+// Drive cheats a soft clip by precomputing a multiplier ramp; we keep it mild so it stays musical.
+static const float    DRIVE_DEPTH_MULT        = 1.4f; // >1.0 boosts into a soft knee
+static const uint16_t DRIVE_SWELL_TABLE       = 64;   // service() ticks before the swell loops
+
 // ---------- Recording ----------
 // 2.6 s ≈ 114.7 KB capture + 57.3 KB of voice buffers ≈ 172.0 KB audio RAM
 //5.2 s = 229.4 KB capture + 114.6 KB of voice buffers = 344.0 KB audio RAM
