@@ -29,6 +29,7 @@ public:
   PadModifiers modifiersFor(uint8_t row) const;
 
 private:
+  uint8_t owningRow(uint8_t modifierRow) const;
   bool altState[4] = {false, false, false, false};
   bool shiftState[4] = {false, false, false, false};
 };

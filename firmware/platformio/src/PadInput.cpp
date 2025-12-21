@@ -15,14 +15,19 @@ void ModifierTracker::reset() {
   }
 }
 
+uint8_t ModifierTracker::owningRow(uint8_t modifierRow) const {
+  return (modifierRow + 4 - MOD_ROW_OFFSET) % 4;
+}
+
 bool ModifierTracker::handlePress(uint8_t row, uint8_t col) {
   if (row >= 4) return false;
+  uint8_t owner = owningRow(row);
   if (col == COL_ALT) {
-    altState[row] = true;
+    altState[owner] = true;
     return true;
   }
   if (col == COL_SHIFT) {
-    shiftState[row] = true;
+    shiftState[owner] = true;
     return true;
   }
   return false;
@@ -30,12 +35,13 @@ bool ModifierTracker::handlePress(uint8_t row, uint8_t col) {
 
 bool ModifierTracker::handleRelease(uint8_t row, uint8_t col) {
   if (row >= 4) return false;
+  uint8_t owner = owningRow(row);
   if (col == COL_ALT) {
-    altState[row] = false;
+    altState[owner] = false;
     return true;
   }
   if (col == COL_SHIFT) {
-    shiftState[row] = false;
+    shiftState[owner] = false;
     return true;
   }
   return false;

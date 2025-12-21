@@ -41,8 +41,11 @@ static const uint32_t MAX_RECORD_SAMPLES = (uint32_t)(SAMPLE_RATE_HZ * MAX_RECOR
 #define ANALOG_IN_PIN  A5   // set to TRRS-mic ADC channel if you prefer headset input
 
 // ---------- UI columns ----------
-static const uint8_t COL_ALT   = 6;  // column index 0..7 (7th column as Alt)
-static const uint8_t COL_SHIFT = 7;  // 8th column as Shift
+// Modifier pads live on the row below the track they control (wrapping D→A)
+// so the main grid keeps all eight columns free for steps.
+static const uint8_t MOD_ROW_OFFSET = 1;  // how far below the owning row the modifier latch lives
+static const uint8_t COL_ALT        = 6;  // column index 0..7 (7th column as Alt)
+static const uint8_t COL_SHIFT      = 7;  // 8th column as Shift
 
 // ---------- Colors (RGB 0-255) ----------
 struct RGB { uint8_t r,g,b; };

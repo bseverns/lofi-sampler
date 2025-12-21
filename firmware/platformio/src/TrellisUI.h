@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <Adafruit_NeoTrellisM4.h>
 #include "Config.h"
+#include "PadInput.h"
 
 struct StepState {
   bool gate;
@@ -15,11 +16,13 @@ public:
   bool begin();
   void setStep(uint8_t row, uint8_t col, const StepState& state);
   StepState getStep(uint8_t row, uint8_t col) const { return steps[row][col]; }
+  void setModifiers(uint8_t row, const PadModifiers& mods);
   void draw(uint8_t step, int recRow); // recRow = -1 if none
   // returns -1 if no event; otherwise packed (row<<8) | col | (0x8000 for press)
   int32_t pollEvent();
 
 private:
   Adafruit_NeoTrellisM4 trellis;
+  PadModifiers modifiers[4] = {{false,false},{false,false},{false,false},{false,false}};
   StepState steps[4][8] = {{{0}}};
 };

@@ -17,6 +17,11 @@ void TrellisUI::setStep(uint8_t row, uint8_t col, const StepState& state) {
   steps[row][col] = state;
 }
 
+void TrellisUI::setModifiers(uint8_t row, const PadModifiers& mods) {
+  if (row >= 4) return;
+  modifiers[row] = mods;
+}
+
 void TrellisUI::draw(uint8_t step, int recRow) {
   for (uint8_t r=0;r<4;r++) {
     for (uint8_t c=0;c<8;c++) {
@@ -32,6 +37,23 @@ void TrellisUI::draw(uint8_t step, int recRow) {
         color = trellis.Color(255, 40, 40);
       }
       uint8_t pixel = (r * 8u) + c;
+      trellis.setPixelColor(pixel, color);
+    }
+  }
+  // Overlay modifier latches onto the offset row so the step grid stays full width.
+  for (uint8_t owner = 0; owner < 4; ++owner) {
+    uint8_t modRow = (owner + MOD_ROW_OFFSET) % 4;
+    const PadModifiers& mods = modifiers[owner];
+    if (mods.alt) {
+      uint8_t pixel = (modRow * 8u) + COL_ALT;
+      float m = BRIGHT_STEP;
+      uint32_t color = trellis.Color(ROW_COLOR[owner].r*m, ROW_COLOR[owner].g*m, ROW_COLOR[owner].b*m);
+      trellis.setPixelColor(pixel, color);
+    }
+    if (mods.shift) {
+      uint8_t pixel = (modRow * 8u) + COL_SHIFT;
+      float m = BRIGHT_STEP;
+      uint32_t color = trellis.Color(ROW_COLOR[owner].r*m, ROW_COLOR[owner].g*m, ROW_COLOR[owner].b*m);
       trellis.setPixelColor(pixel, color);
     }
   }
