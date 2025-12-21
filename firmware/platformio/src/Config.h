@@ -8,6 +8,12 @@ static const uint8_t  STEPS_PER_BAR    = 8;
 static const uint8_t  BEATS_PER_BAR    = 4;
 static const uint8_t  MIDI_PPQN        = 24;         // USB MIDI Clock
 static const uint8_t  CLOCKS_PER_STEP  = (MIDI_PPQN * BEATS_PER_BAR) / STEPS_PER_BAR; // 12
+// Swing shifts the even-numbered steps (2/4/6) later by this fraction of a 24 PPQN tick bucket.
+static const float    GLOBAL_SWING_AMOUNT = 0.15f;   // 0.0f = straight, 0.25f ≈ "classic" MPC push
+
+// Per-step expressive defaults
+static const uint8_t  STEP_DEFAULT_VELOCITY    = 108; // generous but leaves headroom for accents
+static const uint8_t  STEP_DEFAULT_PROBABILITY = 100; // percent chance a lit gate will fire
 
 // ---------- FX (live performance macros) ----------
 // Filter sweeps ride a gentle sine LFO between 1.0 and (1.0 - depth) over the table length.

@@ -22,7 +22,7 @@ volatile bool playing = false;      // latched by MIDI Start/Stop/Continue
 volatile uint8_t stepIndex = 0;     // which of the 8 columns is hot
 volatile uint16_t midiClockCount = 0; // counts 24 PPQN clock ticks until the next step
 
-bool gates[4][8] = {{0}}; // rows A..D
+StepState gates[4][8] = {{{0}}}; // rows A..D
 ModifierTracker modifierTracker;
 static uint8_t recordingRow = 255; // which row owns the live capture
 static bool recordHoldCandidate = false; // true when a long-press overdub could stop on release
@@ -38,6 +38,50 @@ static constexpr uint16_t OVERDUB_HOLD_MS = 250;
 static const float DEFAULT_VOICE_LEVEL = 0.9f;
 static uint32_t stutterReleaseAt[4] = {0,0,0,0};
 
+static StepState defaultStepState() {
+  StepState s = {false, STEP_DEFAULT_VELOCITY, STEP_DEFAULT_PROBABILITY};
+  return s;
+}
+
+static const uint8_t VELOCITY_LANES[] = {80, 108, 127};
+static const uint8_t PROBABILITY_LANES[] = {35, 60, 85, 100};
+
+static uint8_t nextFromLanes(uint8_t current, const uint8_t* lanes, size_t count) {
+  for (size_t i = 0; i < count; ++i) {
+    if (current == lanes[i]) {
+      return lanes[(i + 1) % count];
+    }
+  }
+  return lanes[0];
+}
+
+static bool rollProbability(uint8_t probability) {
+  if (probability >= 100) return true;
+  if (probability == 0) return false;
+  long roll = random(0, 100);
+  return roll < probability;
+}
+
+static float levelFromVelocity(uint8_t velocity) {
+  float norm = velocity / 127.0f;
+  float shaped = 0.45f + (norm * 0.55f);
+  return shaped * DEFAULT_VOICE_LEVEL;
+}
+
+static uint8_t swingTicksForStep(uint8_t nextStep) {
+  static const uint8_t SWUNG_STEPS[] = {1, 3, 5}; // 0-indexed steps 2/4/6
+  for (uint8_t s : SWUNG_STEPS) {
+    if (nextStep == s) {
+      float swing = CLOCKS_PER_STEP * GLOBAL_SWING_AMOUNT;
+      if (swing < 0.0f) swing = 0.0f;
+      uint8_t ticks = (uint8_t)(swing + 0.5f);
+      if (ticks > CLOCKS_PER_STEP / 2) ticks = CLOCKS_PER_STEP / 2;
+      return ticks;
+    }
+  }
+  return 0;
+}
+
 // ---------- Helpers ----------
 [[maybe_unused]] static const char* rowPath(char row) {
   switch(row) {
@@ -52,9 +96,11 @@ static uint32_t stutterReleaseAt[4] = {0,0,0,0};
 static void playStep() {
   const char rowL[4] = {'A','B','C','D'};
   for (uint8_t r=0; r<4; r++) {
-    if (gates[r][stepIndex]) {
+    const StepState& step = gates[r][stepIndex];
+    if (step.gate && rollProbability(step.probability)) {
       char path[16];
       snprintf(path, sizeof(path), "/%c/%c%d.raw", rowL[r], rowL[r], stepIndex+1);
+      audio.setLevel(r, levelFromVelocity(step.velocity));
       audio.preloadAndPlay(r, path);
     } else {
       audio.stopVoice(r);
@@ -215,12 +261,34 @@ static PadActionResult actionFx(uint8_t row, uint8_t col, const PadModifiers& mo
   }
 }
 
+static PadActionResult actionCycleVelocity(uint8_t row, uint8_t col, const PadModifiers& mods) {
+  if (row >= 4) return PadActionResult::NoMatch;
+  if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
+  if (col >= COL_ALT) return PadActionResult::NoMatch;
+  StepState& step = gates[row][col];
+  if (!step.gate) return PadActionResult::NoMatch;
+  step.velocity = nextFromLanes(step.velocity, VELOCITY_LANES, sizeof(VELOCITY_LANES));
+  ui.setStep(row, col, step);
+  return PadActionResult::MatchedContinue;
+}
+
+static PadActionResult actionProbability(uint8_t row, uint8_t col, const PadModifiers& mods) {
+  if (row >= 4) return PadActionResult::NoMatch;
+  if (!mods.alt || mods.shift) return PadActionResult::NoMatch;
+  if (col >= COL_ALT) return PadActionResult::NoMatch;
+  StepState& step = gates[row][col];
+  if (!step.gate) return PadActionResult::NoMatch;
+  step.probability = nextFromLanes(step.probability, PROBABILITY_LANES, sizeof(PROBABILITY_LANES));
+  ui.setStep(row, col, step);
+  return PadActionResult::MatchedStop;
+}
+
 // SHIFT combo riff: momentary "manual retrigger" that leans on whatever gate is already live.
 static PadActionResult actionStutter(uint8_t row, uint8_t col, const PadModifiers& mods) {
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
   if (col >= STEPS_PER_BAR) return PadActionResult::NoMatch;
-  if (!gates[row][col]) return PadActionResult::NoMatch; // treat stutter as "riff on an active gate"
+  if (!gates[row][col].gate) return PadActionResult::NoMatch; // treat stutter as "riff on an active gate"
   char rowL = "ABCD"[row];
   char path[16];
   snprintf(path, sizeof(path), "/%c/%c%d.raw", rowL, rowL, col + 1);
@@ -286,7 +354,10 @@ void handleMidi() {
     if (b0 == 0xF8) { // Timing Clock (24 PPQN)
       if (playing) {
         midiClockCount++;
-        if (midiClockCount >= CLOCKS_PER_STEP) {
+        uint8_t nextStep = (stepIndex + 1) % STEPS_PER_BAR;
+        uint8_t swingExtra = swingTicksForStep(nextStep);
+        uint8_t clocksNeeded = CLOCKS_PER_STEP + swingExtra;
+        if (midiClockCount >= clocksNeeded) {
           midiClockCount = 0;
           stepIndex = (stepIndex + 1) % STEPS_PER_BAR;
           playStep();
@@ -317,6 +388,11 @@ void setup() {
     Serial.println(F("Storage init failed; LittleFS unavailable"));
     while (1) { delay(10); }
   }
+  for (uint8_t r = 0; r < 4; ++r) {
+    for (uint8_t c = 0; c < STEPS_PER_BAR; ++c) {
+      gates[r][c] = defaultStepState();
+    }
+  }
   manifestStatus = storage.checkManifest();
   logManifest(manifestStatus);
   ui.begin();
@@ -328,6 +404,8 @@ void setup() {
   resetPadActionRegistry();
   registerPadAction(actionFx);
   registerPadAction(actionReslice);
+  registerPadAction(actionCycleVelocity);
+  registerPadAction(actionProbability);
   registerPadAction(actionStutter);
   registerPadAction(actionRecord);
   registerPadAction(actionErase);
@@ -351,8 +429,16 @@ void loop() {
         PadModifiers mods = modifierTracker.modifiersFor(r);
         bool consumed = handlePadCombo(r, c, mods);
         if (!consumed) {
-          gates[r][c] = !gates[r][c];
-          ui.setGate(r,c,gates[r][c]);
+          StepState step = gates[r][c];
+          if (!step.gate) {
+            if (step.velocity == 0) step.velocity = STEP_DEFAULT_VELOCITY;
+            if (step.probability == 0) step.probability = STEP_DEFAULT_PROBABILITY;
+            step.gate = true;
+          } else {
+            step.gate = false;
+          }
+          gates[r][c] = step;
+          ui.setStep(r, c, step);
         }
       }
     } else {

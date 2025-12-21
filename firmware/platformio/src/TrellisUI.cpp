@@ -5,20 +5,26 @@ bool TrellisUI::begin() {
   trellis.begin();
   trellis.setBrightness(255);
   for (uint8_t r=0;r<4;r++)
-    for (uint8_t c=0;c<8;c++)
-      setGate(r,c,false);
+    for (uint8_t c=0;c<8;c++) {
+      StepState s = {false, STEP_DEFAULT_VELOCITY, STEP_DEFAULT_PROBABILITY};
+      setStep(r,c,s);
+    }
   draw(255,-1);
   return true;
 }
 
-void TrellisUI::setGate(uint8_t row, uint8_t col, bool on) {
-  gates[row][col] = on;
+void TrellisUI::setStep(uint8_t row, uint8_t col, const StepState& state) {
+  steps[row][col] = state;
 }
 
 void TrellisUI::draw(uint8_t step, int recRow) {
   for (uint8_t r=0;r<4;r++) {
     for (uint8_t c=0;c<8;c++) {
-      float m = gates[r][c] ? BRIGHT_ON : BRIGHT_OFF;
+      const StepState& s = steps[r][c];
+      float velBoost = (s.gate ? (s.velocity / 127.0f) * 0.3f : 0.0f);
+      float probAttenuation = 0.6f + (s.probability / 100.0f) * 0.4f; // 0.6..1.0
+      float m = (s.gate ? BRIGHT_ON : BRIGHT_OFF);
+      m = (m + velBoost) * probAttenuation;
       if (c == step) m = BRIGHT_STEP;
       uint32_t color = trellis.Color(ROW_COLOR[r].r*m, ROW_COLOR[r].g*m, ROW_COLOR[r].b*m);
       if (recRow == r) {
