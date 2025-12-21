@@ -26,13 +26,13 @@ This build targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **N
 - **4 voices (rows A–D):** one sample per row, sliced into A1..A8, etc.
 - **USB MIDI Clock** (24 PPQN) + Start/Stop/Continue → transport.
 - **Multi-button controls:**
-  - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in).
+  - **Shift (col 8) + Row pad** → **Record/Stop** row (analog line-in). Tap to replace the take; **hold** the row with Shift to overdub on release.
   - **Shift + active gate pad** → **Stutter** that slice momentarily at a boosted velocity (no gate toggle).
-  - **Alt (col 7) + Row pad** → **Erase** row’s slices.
-  - **Shift + Alt + Row pad** → **Reslice** the row by reloading `source.raw` off flash and carving new equal 8ths (no gate changes).
+  - **Alt (col 7) + Row pad** → **Undo/Restore**: swap `/row/source_prev.raw` back in and reslice; if there’s no backup, blank the row.
+  - **Shift + Alt + Row pad** → **Reslice** the row by reloading the current (or restored) `source.raw` off flash and carving new equal 8ths (no gate changes).
   - **Normal taps** → toggle gate at that column for that row.
 - **Audio out:** DAC A0 mirrored to A1; timer‑driven at 22,050 Hz, 16‑bit signed.
-- **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step.
+- **Storage:** QSPI flash via **LittleFS** (raw 16‑bit mono), fast prefetch on step, and a per-row `source_prev.raw` safety net for undo/reslice.
 - **Live resampling:** 2.6 s default (≈115 KB capture). On stop, auto‑slice → 8 raw files.
 
 > This repo purposely stores **RAW** 16‑bit little‑endian PCM (`.raw`) to avoid WAV parsing on-device. Use the `tools/wav_to_raw_slices.py` helper or record directly on the Trellis.
@@ -124,7 +124,9 @@ docs/
 
 ## Notes
 - **RAW format:** 16‑bit signed little‑endian, mono, 22,050 Hz.
+- **Prev-take safety net:** Each row keeps `source.raw` plus `source_prev.raw`. Alt+Row swaps the previous take back in and reslices instead of deleting; Shift+Alt reslice will fall back to the backup if the current source goes missing.
 - **Max record secs:** Adjust in `Config.h` (RAM‑bound).
+- **Overdub math:** Shift+hold overdubs mix the fresh capture onto the existing take in 256-sample chunks inside the original capture buffer, so the RAM footprint still obeys the `MAX_RECORD_SECONDS` table.
 - **Playback:** On each step, active rows preload that step’s raw slice from QSPI into a small RAM buffer; ISR mixes 4 voices and writes DAC.
 - **CPU budget:** The ISR only mixes 4 int16 samples → saturation → DAC write. All file I/O happens in the main loop between steps.
 - **AudioEngine etiquette:** `service()` runs in the foreground, drains a job queue, and tops off circular buffers in flash-sized chunks. The 22.05 kHz ISR only ever reads already-primed samples + gain ramps. If you add new work, make it a job and let the loop babysit it; the interrupt stays allergic to anything slower than a multiply. New to the engine? [Read the flow notes + diagram.](docs/audio-engine.md)

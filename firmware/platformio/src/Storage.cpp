@@ -73,6 +73,39 @@ bool Storage::writeRaw(const char* path, const int16_t* src, uint32_t samples) {
   return wr == bytes;
 }
 
+bool Storage::writeSourceWithBackup(char row, const int16_t* src, uint32_t samples) {
+  String path = sourcePathFor(row);
+  String prev = prevSourcePathFor(row);
+  copyIfExists(path, prev); // best-effort; ok if missing
+  return writeRaw(path.c_str(), src, samples);
+}
+
+bool Storage::swapInPreviousSource(char row) {
+  String cur = sourcePathFor(row);
+  String prev = prevSourcePathFor(row);
+  if (!fileExists(prev.c_str())) return false;
+
+  String temp = prev + F(".swap");
+  bool hadCurrent = fileExists(cur.c_str());
+  if (hadCurrent && !copyFile(cur.c_str(), temp.c_str())) {
+    return false;
+  }
+  if (!copyFile(prev.c_str(), cur.c_str())) {
+    if (hadCurrent) {
+      lfs.remove(temp.c_str());
+    }
+    return false;
+  }
+  if (hadCurrent) {
+    copyFile(temp.c_str(), prev.c_str());
+    lfs.remove(temp.c_str());
+  } else {
+    // No current take to preserve; drop the prev copy so the swap is one-way.
+    lfs.remove(prev.c_str());
+  }
+  return true;
+}
+
 void Storage::remove(const char* path) {
   lfs.remove(path);
 }
@@ -155,6 +188,25 @@ bool Storage::fileExists(const char* path) {
     f.close();
   }
   return ok;
+}
+
+bool Storage::copyIfExists(const String& src, const String& dst) {
+  if (!fileExists(src.c_str())) return false;
+  return copyFile(src.c_str(), dst.c_str());
+}
+
+String Storage::sourcePathFor(char row) const {
+  String path = "/";
+  path += row;
+  path += F("/source.raw");
+  return path;
+}
+
+String Storage::prevSourcePathFor(char row) const {
+  String path = "/";
+  path += row;
+  path += F("/source_prev.raw");
+  return path;
 }
 
 uint16_t Storage::countMissing(const std::vector<String>& required) {

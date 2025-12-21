@@ -24,6 +24,16 @@ volatile uint16_t midiClockCount = 0; // counts 24 PPQN clock ticks until the ne
 
 bool gates[4][8] = {{0}}; // rows A..D
 ModifierTracker modifierTracker;
+static uint8_t recordingRow = 255; // which row owns the live capture
+static bool recordHoldCandidate = false; // true when a long-press overdub could stop on release
+static uint32_t recordStartMillis = 0;
+
+enum class RecordMode : uint8_t {
+  Replace = 0,
+  Overdub
+};
+
+static constexpr uint16_t OVERDUB_HOLD_MS = 250;
 
 static const float DEFAULT_VOICE_LEVEL = 0.9f;
 static uint32_t stutterReleaseAt[4] = {0,0,0,0};
@@ -61,9 +71,75 @@ static bool resliceRow(uint8_t row) {
   snprintf(src, sizeof(src), "/%c/source.raw", rowL);
   int32_t count = storage.readRawInto(src, scratch, MAX_RECORD_SAMPLES);
   if (count <= 0) {
+    // Nothing to reslice? Fall back to the previous take if one exists.
+    if (!storage.swapInPreviousSource(rowL)) {
+      return false;
+    }
+    count = storage.readRawInto(src, scratch, MAX_RECORD_SAMPLES);
+  }
+  if (count <= 0) {
     return false;
   }
-  return Slicer::writeEight(&rowL, scratch, (uint32_t)count);
+  return Slicer::writeEight(&rowL, scratch, (uint32_t)count, false);
+}
+
+static bool overdubAndSlice(uint8_t row, uint32_t newSamples) {
+  if (row >= 4) return false;
+  char rowL = "ABCD"[row];
+  char src[16];
+  snprintf(src, sizeof(src), "/%c/source.raw", rowL);
+
+  int32_t existingCount = storage.rawSampleCount(src);
+  if (existingCount <= 0) {
+    return Slicer::writeEight(&rowL, rec.data(), newSamples);
+  }
+
+  uint32_t total = (uint32_t)existingCount;
+  if (newSamples > total) total = newSamples;
+  if (total > MAX_RECORD_SAMPLES) {
+    total = MAX_RECORD_SAMPLES; // respect the RAM budget table
+  }
+
+  // Mix the existing take into the capture buffer in-place.
+  int16_t* mix = rec.mutableData();
+  static const uint16_t CHUNK = 256;
+  int16_t base[CHUNK];
+  uint32_t offset = 0;
+  while (offset < total) {
+    uint32_t want = total - offset;
+    if (want > CHUNK) want = CHUNK;
+    int32_t got = storage.readRawChunk(src, offset, base, want);
+    uint32_t baseCount = got > 0 ? (uint32_t)got : 0;
+    for (uint32_t i = 0; i < want; ++i) {
+      int32_t cur = (i < baseCount) ? base[i] : 0;
+      int32_t incoming = (offset + i < newSamples) ? mix[offset + i] : 0;
+      int32_t sum = cur + incoming;
+      if (sum > 32767) sum = 32767;
+      if (sum < -32768) sum = -32768;
+      mix[offset + i] = (int16_t)sum;
+    }
+    offset += want;
+  }
+  return Slicer::writeEight(&rowL, mix, total);
+}
+
+static bool commitRecording(uint8_t row, uint32_t samples, RecordMode mode) {
+  if (samples == 0 || row >= 4) {
+    recordingRow = 255;
+    recordHoldCandidate = false;
+    return false;
+  }
+  bool ok = false;
+  if (mode == RecordMode::Overdub) {
+    ok = overdubAndSlice(row, samples);
+  }
+  if (mode == RecordMode::Replace || !ok) {
+    char rowL = "ABCD"[row];
+    ok = Slicer::writeEight(&rowL, rec.data(), samples);
+  }
+  recordingRow = 255;
+  recordHoldCandidate = false;
+  return ok;
 }
 
 static void serviceStutterDecay() {
@@ -167,13 +243,14 @@ static PadActionResult actionRecord(uint8_t row, uint8_t col, const PadModifiers
   // SHIFT press on an "empty" step still arms recording; stutter handlers bail
   // early when they detect an unlit gate, so we get the classic hold-Shift-then-pad flow.
   if (!rec.isRecording()) {
+    recordingRow = row;
+    recordHoldCandidate = true;
+    recordStartMillis = millis();
     rec.start();
-  } else {
+  } else if (recordingRow == row) {
     uint32_t n = rec.stop();
-    if (n > 0) {
-      char rowL = "ABCD"[row];
-      Slicer::writeEight(&rowL, rec.data(), n);
-    }
+    recordHoldCandidate = false;
+    commitRecording(row, n, RecordMode::Replace);
   }
   return PadActionResult::MatchedStop;
 }
@@ -183,12 +260,18 @@ static PadActionResult actionErase(uint8_t row, uint8_t col, const PadModifiers&
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.alt || mods.shift) return PadActionResult::NoMatch;
   char rowL = "ABCD"[row];
-  for (uint8_t i=0;i<8;i++) {
-    char path[16]; snprintf(path,sizeof(path),"/%c/%c%d.raw",rowL,rowL,i+1);
-    storage.remove(path);
+  if (storage.swapInPreviousSource(rowL)) {
+    resliceRow(row);
+  } else {
+    for (uint8_t i=0;i<8;i++) {
+      char path[16]; snprintf(path,sizeof(path),"/%c/%c%d.raw",rowL,rowL,i+1);
+      storage.remove(path);
+    }
+    char src[16]; snprintf(src,sizeof(src),"/%c/source.raw",rowL);
+    char prev[20]; snprintf(prev, sizeof(prev), "/%c/source_prev.raw", rowL);
+    storage.remove(src);
+    storage.remove(prev);
   }
-  char src[16]; snprintf(src,sizeof(src),"/%c/source.raw",rowL);
-  storage.remove(src);
   return PadActionResult::MatchedStop;
 }
 
@@ -273,6 +356,15 @@ void loop() {
         }
       }
     } else {
+      // Overdub gesture: Shift + hold a row, then release to commit the mix.
+      if (rec.isRecording() && recordHoldCandidate && recordingRow == r && c < COL_ALT) {
+        PadModifiers mods = modifierTracker.modifiersFor(r);
+        if (mods.shift && (millis() - recordStartMillis) >= OVERDUB_HOLD_MS) {
+          uint32_t n = rec.stop();
+          recordHoldCandidate = false;
+          commitRecording(r, n, RecordMode::Overdub);
+        }
+      }
       modifierTracker.handleRelease(r, c);
     }
   }
