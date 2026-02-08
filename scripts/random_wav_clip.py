@@ -36,7 +36,7 @@ def pick_start(total_frames, frames_needed, rng):
 
 def slice_random_window(src_wav, out_wav, target_seconds, seed=None):
     rng = random.Random(seed)
-    with wave.open(src_wav, "rb") as wav:
+    with wave.open(str(src_wav), "rb") as wav:
         total_frames = validate_wav_params(wav.getparams())
         frames_needed = int(EXPECTED_RATE * target_seconds)
         start = pick_start(total_frames, frames_needed, rng)
@@ -45,7 +45,7 @@ def slice_random_window(src_wav, out_wav, target_seconds, seed=None):
 
     out_path = pathlib.Path(out_wav)
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(out_path, "wb") as out:
+    with wave.open(str(out_path), "wb") as out:
         out.setparams(
             (EXPECTED_CHANNELS, EXPECTED_SAMPLE_WIDTH, EXPECTED_RATE, frames_needed, "NONE", "not compressed")
         )

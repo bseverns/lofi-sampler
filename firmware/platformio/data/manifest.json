@@ -1,0 +1,76 @@
+{
+  "generated_at": "2026-02-08T16:18:36.087366Z",
+  "firmware_version": "53a5980-dirty",
+  "render_command": "python tools/build_demo_fs.py --input-dir /tmp/demo_wavs --stage-dir firmware/platformio/data --skip-buildfs",
+  "rows": {
+    "A": {
+      "source_path": "/tmp/demo_wavs/A.wav",
+      "source_sha256": "c5d583d71ea000906929f04d7f52032b3608d7a69bcce5e7070e3b2b2c7aa48e",
+      "frames": 56448,
+      "samples": 56448,
+      "slice_hashes": {
+        "source.raw": "46c7652bfd8f9f74952639aab2ce787548f1352f4758ee5c794c968ccd798e70",
+        "A1.raw": "b76f907d59be96d96bcd7b2a6dbaadf1289564a7fe3c105b170ef23970a19900",
+        "A2.raw": "0b8ea6b15154d0cc68a87265c09f41de45db783056a82db6dfc293b189a85bee",
+        "A3.raw": "69b95c8b2c8589b8b6dd75cef4588fa70fbaec6e4afa6847597e2b9c69ae3281",
+        "A4.raw": "bd3ca68280d629d67c8e4d4351109932ed7d3da26dddb985799cda956f71dc34",
+        "A5.raw": "1d340b9b8de4613e61a3c119a65f94d75e704ce6fea31b01e1763f68cc133c1b",
+        "A6.raw": "88a71dd3f23b200133d76762f9dcdbc6dda824b6c187c1246bccc093cfbe6539",
+        "A7.raw": "1b322bc6fa5bdced03b63d5625b81af7596ee4299bca7539e12dfc4adda81157",
+        "A8.raw": "cbf1f049936bc57555ea640b4a490c5f0cbee316f1d643219cb469df370e33ef"
+      }
+    },
+    "B": {
+      "source_path": "/tmp/demo_wavs/B.wav",
+      "source_sha256": "b4ba24f1df9ba4211b5d39239aa575e44ff33336c6a55f9af7899427ab41cff3",
+      "frames": 56448,
+      "samples": 56448,
+      "slice_hashes": {
+        "source.raw": "770a0ab8c51fee6b647a5b3ffe69e24290189968506985bbd3964de409a08a54",
+        "B1.raw": "5f2c3783cd111ffb01b28cdaba0f025d47a94de6897e54943723e9af989dca61",
+        "B2.raw": "8c6910b4a77d9678ff11cbed82bdd43dbb01b0437adb3cddae5db4adbd095a5e",
+        "B3.raw": "b3c60f94489a43c4a9bc4a939480f3e2c2f9d0f145f85a8e0a0557109253dd07",
+        "B4.raw": "86bfa6da14c4d7a75928e3a1aca4339aea179bc83dd790f16891c6db67a4f849",
+        "B5.raw": "30209bc6bcf1398d133159db3a1b7b73702ee2f9a233e9825b8080dd0fae8bcc",
+        "B6.raw": "8aef4f4343f7b55e0d393176ba7b12e679d2996ada97a44125016ae48449dcfb",
+        "B7.raw": "8e4b48a72b068849e3b0b794ea00a34388c7ee5d6bbd7ef0fd068511d188054b",
+        "B8.raw": "207f4341771736191d30e6ba1ac4fc9409b842b159014d8d0c9924a9c251c28d"
+      }
+    },
+    "C": {
+      "source_path": "/tmp/demo_wavs/C.wav",
+      "source_sha256": "328035d1462b2e851b54a9f83227a7b01ffa0c7dca284a816c414551fc778c5d",
+      "frames": 56448,
+      "samples": 56448,
+      "slice_hashes": {
+        "source.raw": "64388c970417507325d0a9beba674ba7a79e9d8c64d154119d7f90783210ffea",
+        "C1.raw": "a4b6c7794c174076041a756cac233b839584e860042714c0eb2360faa2f37632",
+        "C2.raw": "de7eb86a3bcf80907568262ca381d979fde05504a716ac2e2a02bb53f3e2854f",
+        "C3.raw": "4a4f1289456a4879527dbde9e4f973cd716ff120dac6ef9a23f9ec1e6d2eb329",
+        "C4.raw": "cf954ced621fbe7ddcbd9d26273ca46419c9fcb6ec6debbc00c954709f72b8bb",
+        "C5.raw": "ce746cb3aedb7ac62811cf0ed22e85a06b9e47ee50347948295b27f307176551",
+        "C6.raw": "ac37de2d58624c081e9db34c5057bba09577293f1cbbe732b267c0cd5e2b2360",
+        "C7.raw": "c9ddd5f1c2b582589511ac2abd8809658343079cab4c2459b62d8633d243dcf4",
+        "C8.raw": "cca1ae7b233c266c3379d89310c2d3e2b3186e3383162262a880f1e9a96acca0"
+      }
+    },
+    "D": {
+      "source_path": "/tmp/demo_wavs/D.wav",
+      "source_sha256": "27bf7c5724effe6d1a38c37eadafad77e02f5bba6ddde67ad252b9622e64c877",
+      "frames": 56448,
+      "samples": 56448,
+      "slice_hashes": {
+        "source.raw": "39b1c6c584e19710e10cf3599c9b26a25bb99aedb13547d96a85b9c18ca1b61c",
+        "D1.raw": "e883feca6d9b49aec470d7de8ba97ed4d6c88d76f47115fdf3e72b2319e5d838",
+        "D2.raw": "9f5d4f9436bf40b1bcf64854b9a4a3e94a6abff82d4e17fea8579d25b621005c",
+        "D3.raw": "8653194114aa5320c6bfc0ccaded018f871e93b92a9f817057d7b5302c2e3d43",
+        "D4.raw": "4812b7822885c10bc4486305c4479350f9a0fcbfc048703d2cee65cedd5c6a15",
+        "D5.raw": "abc7101610676e0a7fe3929085b6f05c83b8d1c38927f720787cd8ce59a8d8da",
+        "D6.raw": "109c1a5626aaf77b2a07ab9b183063e53b5cbc30a595c04dc518267ea3b53c81",
+        "D7.raw": "7951f10cb574bba2309e671dd9b61838359430714c195d22eeea50dd2f9a599c",
+        "D8.raw": "ab832349d5258dafbcf9d796109c553ae841af3ad25b218bb8ce346fb0816164"
+      }
+    }
+  },
+  "littlefs_image": null
+}

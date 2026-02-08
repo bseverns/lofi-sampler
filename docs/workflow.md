@@ -2,6 +2,7 @@
 # Workflow, timing, and files
 
 Need a refresher on which pad combo does what? Bounce back to the [Control Atlas](../README.md#control-atlas-pad-combos-vs-firmware-branches) for the UI-side cheatsheet.
+Looking for a guided walkthrough? See [Demo Exercises](demo-exercises.md).
 
 **Clock math**
 - USB MIDI Clock = 24 PPQN

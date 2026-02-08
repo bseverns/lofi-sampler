@@ -111,6 +111,7 @@ docs/
 ## Examples & DIY helpers
 - **`examples/gen_demo_row_A.py`:** Synthesizes a 2.56 s loop for each row, writes `source.raw` plus `X1.raw…X8.raw` into per-row folders, and never stores WAVs in the repo. Run it once and copy the emitted folders onto the Trellis to sanity-check hardware. Pass `--rows A --outdir examples/demo_row_A` to mimic the original single-row flow.
 - **`examples/midi_clock_sender.py`:** Python + `mido` script that spits MIDI Start + Clock so you can rehearse quantized playback without launching a DAW. Pass `--bpm` to change tempo.
+- **`docs/demo-exercises.md`:** A structured set of teaching demos (Goal → Steps → Observe → Why), plus trainer notes for video walkthroughs.
 - **Need your own slices?** Run `tools/wav_to_raw_slices.py` (see the command above) and drag the files into the root-level `/A`, `/B`, `/C`, `/D` directories that LittleFS exposes.
 
 ### First jam checklist
