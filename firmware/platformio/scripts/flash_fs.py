@@ -10,7 +10,7 @@ def _verbose(cmd, message):
 
 
 def _buildfs(source, target, env):
-    cmd = f"pio -e {ENV_NAME} -t buildfs"
+    cmd = f"pio run -e {ENV_NAME} -t buildfs"
     return env.Execute(_verbose(cmd, "Building LittleFS image"))
 
 
@@ -19,7 +19,7 @@ def _uploadfs(source, target, env):
     if not bin_path.exists():
         print("[littlefs] Skipping upload; littlefs.bin not found (run tools/build_demo_fs.py?)")
         return None
-    cmd = f"pio -e {ENV_NAME} -t uploadfs"
+    cmd = f"pio run -e {ENV_NAME} -t uploadfs"
     return env.Execute(_verbose(cmd, "Flashing LittleFS demo set"))
 
 
