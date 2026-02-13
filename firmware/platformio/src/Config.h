@@ -29,9 +29,9 @@ static const float    DRIVE_DEPTH_MULT        = 1.4f; // >1.0 boosts into a soft
 static const uint16_t DRIVE_SWELL_TABLE       = 64;   // service() ticks before the swell loops
 
 // ---------- Recording ----------
-// 2.6 s ≈ 114.7 KB capture + 57.3 KB of voice buffers ≈ 172.0 KB audio RAM
-//5.2 s = 229.4 KB capture + 114.6 KB of voice buffers = 344.0 KB audio RAM
-static const float    MAX_RECORD_SECONDS = 5.2f;
+// Keep test captures short enough to preserve SRAM headroom while still
+// allowing musically useful one-bar phrases at faster tempos.
+static const float    MAX_RECORD_SECONDS = 2.0f;
 static const uint32_t MAX_RECORD_SAMPLES = (uint32_t)(SAMPLE_RATE_HZ * MAX_RECORD_SECONDS);
 
 // ---------- Pins ----------
