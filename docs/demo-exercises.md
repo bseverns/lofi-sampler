@@ -3,6 +3,8 @@
 These exercises are short, repeatable demos that explain not just *what* the
 sampler does, but *why* the system is designed this way. Each exercise is
 stand‑alone; you can run them in order or cherry‑pick for a workshop.
+If you want a spoken walkthrough that follows the same order, use
+[`docs/demo-script.md`](demo-script.md).
 
 **Preflight**
 Make sure the board is loaded with slices in `/A`, `/B`, `/C`, `/D`, and that a

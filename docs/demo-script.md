@@ -2,6 +2,7 @@
 
 This script follows the punching order from `docs/demo-exercises.md`. It is
 written for an ~8–10 minute walkthrough with short transitions between sections.
+For related setup and reference docs, see the [README documentation map](../README.md#documentation-map).
 
 ---
 

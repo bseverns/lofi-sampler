@@ -54,6 +54,10 @@ firmware/platformio/
   src/
     main.cpp                 # former lofi_sampler.ino entry point
     AudioEngine.h / .cpp     # DAC timer ISR, 4‑voice mix, slice preload
+    ClockTransport.h/.cpp    # MIDI realtime clock/start/stop/continue scheduler
+    PadActionRouter.h / .cpp # combo dispatch for FX/velocity/prob/record actions
+    RecordingController.h/.cpp # record/overdub/reslice/restore lifecycle
+    StepPlaybackController.h/.cpp # per-step probability/velocity voice triggering
     RecorderADC.h / .cpp     # analog line‑in capture to RAM
     Storage.h / .cpp         # LittleFS (QSPI) mount, read/write raw slices
     Slicer.h / .cpp          # equal‑eighth slicing (RAM → files)
@@ -64,7 +68,23 @@ tools/
 docs/
   wiring-analog-in.md        # analog input circuit + pin notes
   workflow.md                # clock math, file scheme, testing checklist
+  demo-exercises.md          # guided teaching flow (Goal/Steps/Observe/Why)
+  demo-script.md             # narrated 8–10 minute walkthrough script
+  audio-engine.md            # ISR-safe audio architecture and job queue
+  roadmap.md                 # planned architecture/storage/features upgrades
 ```
+---
+
+## Documentation map
+- [Quick start + controls](#getting-started-hardware-first-in-order) for first boot and pad combos.
+- [Demo exercises](docs/demo-exercises.md) for a repeatable trainer flow.
+- [Demo narration script](docs/demo-script.md) for the spoken walkthrough.
+- [Workflow + timing swim-lane](docs/workflow.md) for MIDI/UI/storage sequencing.
+- [Audio engine notes](docs/audio-engine.md) for ISR-safe design constraints.
+- [Analog input wiring](docs/wiring-analog-in.md) for the A5 line/mic circuit.
+- [Demo sample pipeline](docs/demo-samples.md) for manifest-backed factory content.
+- [Roadmap](docs/roadmap.md) for modularization, storage abstraction, and future modes.
+
 ---
 
 ## Build quickstart
@@ -105,6 +125,7 @@ docs/
 - **Workflow file:** [`.github/workflows/firmware-build.yml`](.github/workflows/firmware-build.yml) keeps the NeoTrellis build honest on every PR. It installs PlatformIO, restores the `.pio` cache when hashes match, and runs `pio run -e adafruit_trellis_m4` so the TinyUSB MIDI shim + `handleMidi` parser keep compiling cleanly (read: MIDI clock integrity is enforced by robots, not vibes).
 - **Mimic it locally:** same command, same env. From repo root: `cd firmware/platformio && pio run -e adafruit_trellis_m4`. If the CI can build it, you can too; the cache just speeds up downloads.
 - **Debug trail:** CI captures `artifacts/firmware-build.log` as an artifact—snag it from a failed run to see which include or flag flaked out. Keep your own log by piping `pio run -e adafruit_trellis_m4 | tee artifacts/firmware-build.log` when poking at MIDI clock changes.
+- **Host-side module tests:** run `./scripts/run_host_tests.sh` to compile and execute the clock transport + pad action router unit tests on your workstation (no board connected).
 
 ---
 
@@ -112,6 +133,7 @@ docs/
 - **`examples/gen_demo_row_A.py`:** Synthesizes a 2.56 s loop for each row, writes `source.raw` plus `X1.raw…X8.raw` into per-row folders, and never stores WAVs in the repo. Run it once and copy the emitted folders onto the Trellis to sanity-check hardware. Pass `--rows A --outdir examples/demo_row_A` to mimic the original single-row flow.
 - **`examples/midi_clock_sender.py`:** Python + `mido` script that spits MIDI Start + Clock so you can rehearse quantized playback without launching a DAW. Pass `--bpm` to change tempo.
 - **`docs/demo-exercises.md`:** A structured set of teaching demos (Goal → Steps → Observe → Why), plus trainer notes for video walkthroughs.
+- **`docs/demo-script.md`:** Narrated companion script that follows the same exercise order for 8–10 minute demos.
 - **Need your own slices?** Run `tools/wav_to_raw_slices.py` (see the command above) and drag the files into the root-level `/A`, `/B`, `/C`, `/D` directories that LittleFS exposes.
 
 ### First jam checklist
