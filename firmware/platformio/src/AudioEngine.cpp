@@ -28,9 +28,10 @@ static constexpr uint16_t STOP_FADE_FRAMES    = 128;
 
 bool AudioEngine::begin() {
   analogWriteResolution(12);
-  pinMode(DAC_PIN_L, OUTPUT);
-  pinMode(DAC_PIN_R, OUTPUT);
   s_self = this;
+  selfTestPhase = 0;
+  selfTestPhaseStep = 0;
+  selfTestRemaining = 0;
 
   jobHead = 0;
   jobTail = 0;
@@ -81,6 +82,20 @@ void AudioEngine::start() {
 void AudioEngine::stop() {
   running = false;
   zt.enable(false);
+}
+
+void AudioEngine::playSelfTestTone(uint16_t durationMs, uint16_t frequencyHz) {
+  if (durationMs == 0) durationMs = 1;
+  if (frequencyHz == 0) frequencyHz = 440;
+
+  uint32_t samples = ((uint32_t)durationMs * SAMPLE_RATE_HZ + 999u) / 1000u;
+  uint32_t phaseStep = (uint32_t)(((uint64_t)frequencyHz << 32) / SAMPLE_RATE_HZ);
+
+  noInterrupts();
+  selfTestPhase = 0;
+  selfTestPhaseStep = phaseStep;
+  selfTestRemaining = samples;
+  interrupts();
 }
 
 void AudioEngine::setLevel(uint8_t v, float lv) {
@@ -231,6 +246,22 @@ void AudioEngine::isr() {
     vavailable[v] = avail - 1;
     if ((avail - 1u) == 0u && !voiceStreaming[v]) {
       voiceActive[v] = false;
+    }
+  }
+
+  if (selfTestRemaining > 0 && selfTestPhaseStep > 0) {
+    uint32_t phase = selfTestPhase + selfTestPhaseStep;
+    uint32_t remaining = selfTestRemaining;
+    int32_t amplitude = SELF_TEST_AMPLITUDE;
+    if (remaining < 64u) {
+      amplitude = (amplitude * (int32_t)remaining) / 64;
+    }
+    mix += (phase & 0x80000000u) ? amplitude : -amplitude;
+    selfTestPhase = phase;
+    remaining--;
+    selfTestRemaining = remaining;
+    if (remaining == 0) {
+      selfTestPhaseStep = 0;
     }
   }
 

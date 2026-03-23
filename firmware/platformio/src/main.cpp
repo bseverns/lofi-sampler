@@ -44,7 +44,7 @@ static void logManifest(const ManifestCheck& status) {
   Serial.println(status.message);
 }
 
-static void handleFactoryResetCommand() {
+static void handleSerialCommands() {
   while (Serial.available()) {
     char c = Serial.read();
     if (c == 'f' || c == 'F') {
@@ -56,6 +56,9 @@ static void handleFactoryResetCommand() {
       manifestStatus = storage.checkManifest();
       logManifest(manifestStatus);
       audio.start();
+    } else if (c == 't' || c == 'T') {
+      Serial.println(F("DAC self-test tone"));
+      audio.playSelfTestTone();
     }
   }
 }
@@ -101,12 +104,13 @@ void setup() {
   modifierTracker.reset();
 
   audio.start();
+  Serial.println(F("Serial commands: t=self-test tone, f=factory demo restore"));
 }
 
 // ---------- Loop ----------
 void loop() {
   handleMidi();
-  handleFactoryResetCommand();
+  handleSerialCommands();
 
   // UI input
   int32_t ev = ui.pollEvent();

@@ -16,6 +16,7 @@ This build targets **PlatformIO + Adafruit’s TinyUSB Arduino core** on the **N
    pio device monitor       # peek at serial output (115200 baud)
    ```
    First boot formats the QSPI flash as LittleFS; keep it powered during the progress blip.
+   In `pio device monitor`, press `t` to fire a short DAC self-test tone straight to the audio jack before you even care about MIDI clock or sample files.
 4. **Load samples:** Option A — hold **Shift (col 8)** and tap any row pad to record the analog input, then tap again to stop + auto-slice. Option B — pre-slice a WAV (see the exact command below) and copy the `A1.raw…A8.raw` files plus `source.raw` to `/A`, `/B`, etc. on the mounted LittleFS drive (e.g. drag the files onto the NeoTrellis volume).
 5. **Clock + jam:** Start the provided `examples/midi_clock_sender.py` or your DAW so it emits MIDI Start + Clock. Toggle gates, hold **Alt** (col 7) to erase, hold **Shift** for live record/stutter. Connect headphones and run `python examples/gen_demo_row_A.py` once if you want baked-in sample packs to copy onto `/A/`, `/B/`, `/C/`, `/D/`.
 
@@ -120,6 +121,7 @@ docs/
   ```
   The parser is deliberately forgiving—it grabs any quoted string that looks like an absolute path—so feel free to sprinkle comments.
 - **Factory reset for testers:** open `pio device monitor` and press `f` (or `F`) to trigger a “factory demo” restore. The firmware will copy every path in the manifest from `/factory/<path>` back to the live root (e.g., `/factory/A/A1.raw` → `/A/A1.raw`). Ship your known-good slices under `/factory` in the LittleFS image and you get a one-key re-flash without rebuilding firmware.
+- **DAC sanity check:** open `pio device monitor` and press `t` (or `T`) to hear a short square-wave chirp from the DAC jack. If that chirp is audible, the jack/DAC path is alive and any remaining silence is upstream in clocking, slices, or input content.
 
 ### Firmware CI loop (TinyUSB MIDI sanity check)
 - **Workflow file:** [`.github/workflows/firmware-build.yml`](.github/workflows/firmware-build.yml) keeps the NeoTrellis build honest on every PR. It installs PlatformIO, restores the `.pio` cache when hashes match, and runs `pio run -e adafruit_trellis_m4` so the TinyUSB MIDI shim + `handleMidi` parser keep compiling cleanly (read: MIDI clock integrity is enforced by robots, not vibes).

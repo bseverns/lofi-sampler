@@ -15,6 +15,7 @@ public:
   void attachStorage(Storage* s) { storage = s; }
   void start();
   void stop();
+  void playSelfTestTone(uint16_t durationMs = 250, uint16_t frequencyHz = 440);
 
   // schedule to play a raw slice file (e.g., "/A/A1.raw") on a voice (0..3)
   bool preloadAndPlay(uint8_t voice, const char* path);
@@ -40,6 +41,7 @@ public:
 private:
   static constexpr uint8_t  JOB_QUEUE_SIZE = 8;
   static constexpr uint8_t  MAX_PATH_LEN   = 32;
+  static constexpr int16_t  SELF_TEST_AMPLITUDE = 384;
   // Simple per-voice RAM buffer for current slice. Big enough to slurp an entire
   // recorded slice (MAX_RECORD_SAMPLES chopped into 8 pieces, rounded up).
   static constexpr uint32_t BUF_SAMPLES = (MAX_RECORD_SAMPLES + 7u) / 8u;
@@ -135,4 +137,8 @@ private:
   volatile uint16_t crushCountdown[4]   = {0,0,0,0};
   int16_t           crushLatchedSample[4] = {0,0,0,0};
   uint8_t           crushShift[4] = {0,0,0,0};
+
+  volatile uint32_t selfTestPhase = 0;
+  volatile uint32_t selfTestPhaseStep = 0;
+  volatile uint32_t selfTestRemaining = 0;
 };
