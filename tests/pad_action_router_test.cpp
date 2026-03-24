@@ -137,7 +137,7 @@ void testRecordAndRestoreFallback() {
   PadModifiers altOnly = {true, false};
   expectTrue(router.handlePress(1, 7, altOnly), "restore fallback consumed");
   expectEq(rec.restoreCalls, 1, "restore-or-blank called");
-  expectEqU8(rec.lastRestoreRow, 1, "restore/erase row");
+  expectEqU8(rec.lastRestoreRow, 1, "restore-or-blank row");
 }
 }
 

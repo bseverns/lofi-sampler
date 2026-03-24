@@ -39,6 +39,7 @@ This repo's canonical firmware path is **PlatformIO** under [`firmware/platformi
 - 8 columns = 8 steps per bar.
 - USB MIDI clock is the transport spine.
 - Live recording writes a new `source.raw` and re-slices the row into eight equal regions.
+- Alt-held row actions are restore-first: they swap back the previous take when available, otherwise they blank the row.
 - Step 7 and step 8 are usable musical steps; they only behave as modifiers when you hold them in a chord.
 
 ## Canonical Docs

@@ -31,7 +31,7 @@ Think of them as hold-for-control pads, not permanently reserved control buttons
 
 ### Alt-held gestures
 - Hold the target row's Alt pad and tap a **lit** step: cycle the probability lane.
-- Hold the target row's Alt pad and tap an **unlit** step on that row: restore the previous take if `source_prev.raw` exists; otherwise blank the row.
+- Hold the target row's Alt pad and tap an **unlit** step on that row: perform a restore-or-blank action. It restores the previous take if `source_prev.raw` exists; otherwise it blanks the row.
 
 ### Shift + Alt gestures
 - Hold both modifier pads for a row and tap step 1: filter sweep.
@@ -43,7 +43,7 @@ Think of them as hold-for-control pads, not permanently reserved control buttons
 ## Notes On Semantics
 - The docs use **target row** instead of **row pad** because the hardware has only the 4x8 grid; there is no separate row button bank.
 - Record/restore gestures are row-level behaviors routed from the pad you hit on that row after modifiers are applied.
-- A lit-step Alt gesture changes probability instead of restore/erase.
+- A lit-step Alt gesture changes probability instead of the row-level restore-or-blank action.
 - A lit-step Shift gesture changes velocity and fires a stutter hit in the same press path.
 
 ## Files Touched By Row-Level Actions
