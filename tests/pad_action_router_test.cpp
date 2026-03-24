@@ -115,10 +115,10 @@ void testProbabilityLane() {
   expectTrue(router.handlePress(3, 4, mods), "alt lit-step consumed");
   expectEqU8(gates[3][4].probability, 60, "probability lane advanced");
   expectEq(ui.setStepCalls, 1, "ui updated after probability change");
-  expectEq(rec.restoreCalls, 0, "erase not triggered for lit step probability cycle");
+  expectEq(rec.restoreCalls, 0, "restore fallback not triggered for lit step probability cycle");
 }
 
-void testRecordAndErase() {
+void testRecordAndRestoreFallback() {
   AudioEngine audio;
   TrellisUI ui;
   RecordingController rec;
@@ -135,8 +135,8 @@ void testRecordAndErase() {
   expectEqU8(rec.lastStopCommitRow, 2, "record stop row");
 
   PadModifiers altOnly = {true, false};
-  expectTrue(router.handlePress(1, 7, altOnly), "erase consumed");
-  expectEq(rec.restoreCalls, 1, "restore/erase called");
+  expectTrue(router.handlePress(1, 7, altOnly), "restore fallback consumed");
+  expectEq(rec.restoreCalls, 1, "restore-or-blank called");
   expectEqU8(rec.lastRestoreRow, 1, "restore/erase row");
 }
 }
@@ -146,7 +146,7 @@ int main() {
   testResliceCombo();
   testVelocityThenStutterChain();
   testProbabilityLane();
-  testRecordAndErase();
+  testRecordAndRestoreFallback();
 
   if (failures != 0) {
     std::cerr << failures << " test(s) failed\n";

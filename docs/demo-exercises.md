@@ -1,195 +1,129 @@
-# Demo Exercises — Teaching the NeoTrellis M4 Lo‑Fi Sampler
+# Demo Exercises - Teaching The NeoTrellis M4 Lo-Fi Sampler
 
-These exercises are short, repeatable demos that explain not just *what* the
-sampler does, but *why* the system is designed this way. Each exercise is
-stand‑alone; you can run them in order or cherry‑pick for a workshop.
-If you want a spoken walkthrough that follows the same order, use
-[`docs/demo-script.md`](demo-script.md).
+These exercises are short, repeatable demos that explain both what the sampler does and why the design is shaped this way. If you want the narrated version, use [`demo-script.md`](demo-script.md).
 
-**Preflight**
-Make sure the board is loaded with slices in `/A`, `/B`, `/C`, `/D`, and that a
-MIDI clock is running.
+## Preflight
+Make sure:
+- the current firmware is flashed
+- MIDI clock is running
+- the bundled demo pack is audible or you have recorded material on at least one row
 
-Use these helpers if needed:
-- `python examples/gen_demo_row_A.py` to generate demo raws.
-- `python examples/midi_clock_sender.py --out "NTM4 Sampler" --bpm 90` for clock.
+Helpful tools:
+- `python examples/midi_clock_sender.py --out "NTM4 Sampler" --bpm 90`
+- `python examples/gen_demo_row_A.py`
 
----
-
-**Exercise 1 — Clocked Grid (Quantization)**
-Goal: Show that everything locks to a global USB MIDI clock.
+## Exercise 1 - Clocked Grid
+Goal: show that playback advances only on USB MIDI clock.
 
 Steps:
-1. Start the MIDI clock at 90 BPM.
-2. Toggle a few gates on row A (columns 1–6).
-3. Stop the clock, wait, then send Continue.
+1. Start MIDI clock at 90 BPM.
+2. Toggle a few gates on row A.
+3. Stop and Continue the transport.
 
-Observe: Steps only advance on the clock, and Continue resumes on the current step.
+Observe: playback advances only on clock and resumes cleanly.
 
-Why it’s designed this way: The global clock is the backbone that keeps UI,
-file I/O, and the DAC ISR synchronized without drift.
+Why: the clock is the transport spine for the whole instrument.
 
----
-
-**Exercise 2 — “Silence → Phase → Chaos”**
-Goal: Demonstrate the drift effect when sample lengths differ.
-
-Setup: Ensure rows A and B have different source lengths.
+## Exercise 2 - Phase Drift
+Goal: show how equal slicing plus different source material creates motion.
 
 Steps:
-1. Turn on the same gates for rows A and B.
-2. Let it run for 4–8 bars.
+1. Enable the same gate pattern on rows A and B.
+2. Let it run for several bars.
 
-Observe: The two rows gradually drift in and out of phase, creating evolving
-rhythms without changing the grid.
+Observe: the rows drift in and out of phase.
 
-Why it’s designed this way: Equal‑slice quantization plus differing source
-lengths gives complexity from simple inputs.
+Why: complexity comes from the audio material, not from adding sequencer pages.
 
----
-
-**Exercise 3 — Modifier Offset Latch**
-Goal: Show why Alt/Shift live “one row down.”
+## Exercise 3 - Chorded Controls
+Goal: show that steps 7 and 8 are still playable while also serving as modifiers.
 
 Steps:
-1. Hold Alt on the row below row A (column 7).
-2. While holding, tap gates on row A.
-3. Release Alt and tap gates again.
+1. Tap step 7 or 8 on a row by itself.
+2. Hold the corresponding control pad one row down and tap a pad on the target row.
+3. Release and tap the control pad by itself again.
 
-Observe: Modifier latch stays tied to a row while preserving all 8 step pads.
+Observe: the same physical pad can be a musical step or a held modifier depending on context.
 
-Why it’s designed this way: You keep full 8‑step lanes per row without giving
-up modifier access.
+Why: this preserves the full 8-step lane.
 
----
-
-**Exercise 4 — Velocity Lanes**
-Goal: Show per‑step dynamics without a full menu system.
+## Exercise 4 - Velocity Lanes
+Goal: show per-step dynamics.
 
 Steps:
-1. Enable a few gates on row A.
-2. Hold Shift and tap a lit step repeatedly.
+1. Light a few steps on a row.
+2. Hold Shift for that row and tap a lit step repeatedly.
 
-Observe: The step’s brightness changes as velocity cycles (80 → 108 → 127).
+Observe: the velocity lane changes and the hit is more or less accented.
 
-Why it’s designed this way: Three discrete lanes give musical expression while
-keeping UI interactions simple and fast.
+Why: discrete expressive states are fast to teach and fast to play.
 
----
-
-**Exercise 5 — Probability Lanes**
-Goal: Show controlled randomness per step.
+## Exercise 5 - Probability Lanes
+Goal: show controlled randomness.
 
 Steps:
-1. Enable a few gates on row A.
-2. Hold Alt and tap a lit step repeatedly.
+1. Light a few steps on a row.
+2. Hold Alt for that row and tap a lit step repeatedly.
 
-Observe: The step’s probability cycles (35% → 60% → 85% → 100%).
+Observe: the probability lane cycles.
 
-Why it’s designed this way: Discrete probability lanes add variation without
-adding UI complexity or CPU cost.
+Why: variation without UI sprawl.
 
----
-
-**Exercise 6 — Stutter Without Reprogramming**
-Goal: Show “momentary FX” that do not change the gate pattern.
+## Exercise 6 - Stutter Without Reprogramming
+Goal: show a live gesture that does not rewrite the pattern.
 
 Steps:
-1. Enable a gate on row A, step 3.
-2. While it plays, hold Shift and tap the lit step.
+1. Light a step on a row.
+2. Hold Shift for that row and tap the lit step while it plays.
 
-Observe: A brief stutter blast fires, but the gate pattern stays unchanged.
+Observe: you get a stutter hit while the underlying gate pattern stays intact.
 
-Why it’s designed this way: Performance gestures are possible without losing
-the underlying pattern.
+Why: expressive overlay beats menu diving.
 
----
-
-**Exercise 7 — Live Record + Auto‑Slice**
-Goal: Show the record path and the reason for 8‑slice auto‑cutting.
+## Exercise 7 - Record And Auto-Slice
+Goal: show the live capture path.
 
 Steps:
-1. Patch a line‑level source into the analog input.
-2. Hold Shift and tap a row pad to start recording.
-3. Tap the same row pad again to stop and auto‑slice.
+1. Patch a line-level source into the analog input.
+2. Hold Shift for a row and tap an unlit pad on that row to start recording.
+3. Repeat to stop.
 
-Observe: The row mutes during record, then immediately plays 8 new slices.
+Observe: the row writes a new source and eight fresh slices.
 
-Why it’s designed this way: Recording creates a `source.raw` plus 8 equal
-slices so the playback grid remains stable.
+Why: every take is normalized back into the same 8-step playback model.
 
----
-
-**Exercise 8 — Undo/Restore + Reslice**
-Goal: Show the safety net and the “try again” workflow.
+## Exercise 8 - Restore And Reslice
+Goal: show the safety net.
 
 Steps:
-1. Record a new take on row A.
-2. Hold Alt and tap row A once.
-3. Hold Shift+Alt and tap step 6 on row A.
+1. Record a new take on a row.
+2. Hold Alt for that row and tap an unlit pad on the row.
+3. Hold Shift and Alt and tap step 6 on the row.
 
-Observe: Alt swaps in `source_prev.raw` if it exists. Shift+Alt+step 6 reslices
-the current `source.raw` without touching gates.
+Observe: Alt restores the previous take when present or blanks the row when not. Shift+Alt+step 6 reslices the current row source without touching gates.
 
-Why it’s designed this way: You can recover the previous take or reslice the
-current one without reprogramming the pattern.
+Why: you can experiment without rebuilding the pattern from scratch.
 
----
-
-**Exercise 9 — Performance FX and ISR Discipline**
-Goal: Show FX triggers and explain the “boring ISR” rule.
+## Exercise 9 - FX And ISR Discipline
+Goal: show the performance FX and the engineering rule behind them.
 
 Steps:
-1. Hold Shift+Alt and tap step 1 to trigger filter sweep.
-2. Hold Shift+Alt and tap step 2 to trigger bitcrush.
-3. Hold Shift+Alt and tap step 3 to trigger drive.
-4. Hold Shift+Alt and tap step 4 to clear FX.
+1. Hold Shift+Alt and tap step 1.
+2. Repeat with steps 2, 3, and 4.
 
-Observe: The FX feel immediate but playback stays stable.
+Observe: the timbre changes immediately while playback remains stable.
 
-Why it’s designed this way: The ISR only mixes precomputed tables; slow work
-lives in the foreground job queue to avoid audio glitches.
+Why: the foreground builds the work and the ISR stays deterministic.
 
----
-
-**Exercise 10 — Factory Demo Restore + Manifest**
-Goal: Show how demo integrity is maintained for teaching rigs.
+## Exercise 10 - Known-Good Demo Surface
+Goal: show that the repo has a fast trust surface.
 
 Steps:
-1. Connect Serial Monitor at 115200 baud.
-2. Press `f` to trigger factory demo restore.
-3. Reboot and watch the `[manifest]` log line.
+1. Flash the current firmware.
+2. Start clock.
+3. Use the bundled demo pack.
+4. Compare what you hear with [`ListeningGuide.md`](ListeningGuide.md).
 
-Observe: The board restores `/factory` files into the live root and reports
-manifest status.
+Observe: a freshly flashed board has an audible proof surface without a separate filesystem upload ritual.
 
-Why it’s designed this way: A one‑key reset keeps demo boards consistent
-without reflashing firmware.
-
----
-
-**Trainer Notes (Punching Order + Key Ideas)**
-
-**Order (Suggested Flow)**
-1. Clocked Grid
-2. Phase Drift
-3. Offset Latches
-4. Velocity Lanes
-5. Probability Lanes
-6. Stutter Gesture
-7. Record + Auto‑Slice
-8. Undo + Reslice
-9. Performance FX
-10. Factory Restore
-
-**Key Ideas By Section**
-- Clocked Grid: global clock keeps the whole machine synchronized; no drift.
-- Phase Drift: equal slicing + different source lengths = evolving grooves.
-- Offset Latches: full 8 steps per row without sacrificing modifiers.
-- Velocity Lanes: expressive dynamics without menus; three discrete levels.
-- Probability Lanes: controlled randomness per step; no extra UI complexity.
-- Stutter Gesture: momentary performance without changing the pattern.
-- Record + Auto‑Slice: one take becomes `source.raw` + eight slices.
-- Undo + Reslice: recover previous take or re‑slice without reprogramming gates.
-- Performance FX: FX precompute in the foreground; ISR stays deterministic.
-- Factory Restore: one‑key return to a known demo image for consistent teaching.
+Why: public-facing hardware repos need a musical trust surface, not just source code.

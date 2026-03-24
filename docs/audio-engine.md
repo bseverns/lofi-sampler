@@ -1,50 +1,33 @@
-# AudioEngine Flow (job queue → RAM buffers → ISR mix)
+# AudioEngine Flow
 
-Think of the AudioEngine as two co-conspirators who never step on each other’s cables:
+The AudioEngine is intentionally split into two worlds that should not bleed into each other.
 
-- **`service()` (foreground, main loop):** lives in `firmware/arduino/lofi_sampler/AudioEngine.cpp`. It drains the tiny job queue, preloads slices from flash into per-voice RAM rings, and nudges gain ramps forward. All slow I/O and housekeeping happens here.
-- **`isr()` (22.05 kHz timer interrupt):** also in `AudioEngine.cpp`. It only mixes already-ready samples with already-baked gain ramps and pushes them to the DAC. No filesystem calls, no Serial, no allocations—just deterministic math.
+- **Foreground `service()` path:** lives in [`firmware/platformio/src/AudioEngine.cpp`](../firmware/platformio/src/AudioEngine.cpp). It drains the job queue, primes buffers, advances gain ramps, and handles storage-facing work.
+- **Timer ISR path:** also in `AudioEngine.cpp`. It mixes already-primed samples and writes the DAC at 22.05 kHz.
 
-The job queue keeps those worlds synchronized: anything that needs flash, fades, or diagnostics becomes a job so the ISR can remain aggressively boring.
+## Design Rule
+Anything slow, stateful, or storage-heavy belongs in the foreground path. The ISR gets deterministic math only.
 
-## Quick diagram
-```
-[ loop() ]
-    |
-    |  enqueue jobs via preloadAndPlay(), setLevel(), stopVoice(), requestDiagnostics()
-    v
-[ job queue (AudioEngine::Job) ]
-    |
-    |  service(): handleJob() -> handlePreload()/handleFade()/handleDiagnostics()
-    |  service(): pumpStreams() slurps flash into vbuf[voice][]
-    |  service(): pumpGains() advances gain ramps
-    v
-[ per-voice RAM ring buffers (vbuf) ]
-    |
-    |  isr(): reads vavailable/vpos, mixes int16 samples, applies vgainCurrent
-    v
-[ DAC write at 22.05 kHz ]
-```
+## Main Components
+- `preloadAndPlay()`: queues a slice preload for a voice.
+- `setLevel()` and `stopVoice()`: queue or arm gain changes.
+- `triggerFilterSweep()`, `triggerBitcrush()`, `triggerDrive()`, `clearFx()`: build tables in the foreground so the ISR only reads current values.
+- `pumpStreams()`: keeps per-voice buffers primed from storage.
+- `pumpGains()`: advances ramps.
+- `isr()`: mixes ready samples and writes the DAC.
 
-## How preloads and fades move
-1. **Queue the work:**
-   - `preloadAndPlay(voice, path)` pushes a `JobType::Preload` with the slice path (e.g., `/A/A1.raw`).
-   - `setLevel(voice, level)` or `stopVoice(voice)` push `JobType::Fade` entries. If the queue is full, they arm the ramp directly as a fallback.
-   - Live FX mashes (`triggerFilterSweep()`, `triggerBitcrush()`, `triggerDrive()`, `clearFx()`) push `JobType::FilterSweep`/`Bitcrush`/`Drive`/`FxClear`, which only ever precompute lookup tables for the ISR to sip.
-2. **Drain in `service()`:** the main loop calls `AudioEngine::service()`, which pops jobs and routes them to `handlePreload()`, `handleFade()`, or the FX handlers.
-   - `handlePreload()` resets the voice state, asks `Storage` for sample counts, marks the voice as streaming, and immediately calls `pumpStreams()` to seed the buffer so playback can start next ISR tick.
-   - `handleFade()` arms gain ramps via `armGainRamp()`; a zero target also marks the voice for draining.
-   - FX handlers build sine ramps, drive swells, or bitcrush hold tables. `pumpEffects()` walks those tables once per frame so the ISR only multiplies/bitmasks with precomputed values.
-3. **Stream in the background:** `pumpStreams()` pulls chunks from flash with `Storage::readRawChunk()` into `vbuf` in circular fashion until `voiceLoadedSamples` catches `voiceTotalSamples`. On the first successful fill, it flags `voicePrimed`/`voiceActive` and triggers a fade-in ramp.
-4. **Fade arithmetic:** `pumpGains()` advances per-voice `vgainCurrent` toward `vgainTarget` using precomputed steps so the ISR doesn’t think about envelopes.
+## Why This Matters
+The Trellis scan, USB stack, storage reads, and combo routing all live outside the ISR. That separation is why the board can keep playing while the rest of the firmware is busy.
 
-## What the ISR does (and won’t do)
-`AudioEngine::isr()` wakes at 22,050 Hz and loops over four voices. For any `voicePrimed` with `vavailable > 0`, it grabs the next sample from `vbuf`, multiplies by `vgainCurrent`, sums, clamps, and writes both DAC pins. When a buffer drains and streaming has finished, it marks the voice inactive. Anything slower than a multiply stays out of the ISR; add a job instead and let `service()` babysit it.
+## Current Reality
+- The timer path is wired through `TC3_Handler()`.
+- DAC writes are direct in the real-time path rather than repeated `analogWrite()` calls.
+- The idle diagnostic spam that used to flood Serial was removed; diagnostics are no longer auto-enqueued every time an idle voice is cleaned up.
 
-## Entry points for spelunking
-- Foreground loop hook: `AudioEngine::service()` in `firmware/platformio/src/AudioEngine.cpp` (called from `loop()` in `main.cpp`).
-- Job producers: `preloadAndPlay()`, `setLevel()`, `stopVoice()`, `triggerFilterSweep()/triggerBitcrush()/triggerDrive()/clearFx()`, and `requestDiagnostics()` in `AudioEngine.h`/`.cpp`—these enqueue `Job` structs consumed by `service()`.
-- Job consumers and buffer plumbers: `handlePreload()`, `handleFade()`, `handleDiagnostics()`, the FX handlers, plus `pumpStreams()`/`pumpGains()`/`pumpEffects()` in `AudioEngine.cpp`.
-- ISR mixdown: `AudioEngine::isr()` and the timer hook `onTimerISR()` in `AudioEngine.cpp`—the only code that actually touches the DAC.
+## Entry Points
+- Foreground loop hook: [`main.cpp`](../firmware/platformio/src/main.cpp)
+- Audio engine: [`AudioEngine.cpp`](../firmware/platformio/src/AudioEngine.cpp)
+- Storage interface: [`Storage.cpp`](../firmware/platformio/src/Storage.cpp)
+- Step playback routing: [`StepPlaybackController.cpp`](../firmware/platformio/src/StepPlaybackController.cpp)
 
-Treat this as a studio notebook meets safety manual: queue the heavy work, let `service()` shovel bytes, and keep the interrupt path monk-like and predictable.
+For transport math and subsystem timing, see [`workflow.md`](workflow.md).

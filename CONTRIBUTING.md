@@ -1,27 +1,46 @@
-# Contributing to the NeoTrellis Lo-Fi Sampler
+# Contributing To The NeoTrellis Lo-Fi Sampler
 
-This repo is half lab notebook, half hands-on tutorial. Keep commits conversational but reproducible.
+Keep the repo teachable, reproducible, and honest.
 
 ## Workflow
-1. Fork + branch (`git checkout -b feature/whatever`).
-2. Run the firmware on real hardware (or log your bench limitations in the PR).
-3. Describe *why* you changed things in the commit message and PR body. The README doubles as a teaching aid, so document knobs you add.
-4. For code, follow the existing formatting (2 spaces in `.ino` files, snake_case for helpers).
-5. Please include reproduction steps + before/after audio notes if you tweak timing, slicing, or effects.
+1. Branch from current main.
+2. Build the firmware from `firmware/platformio/`.
+3. Bench-test on real hardware when your change touches USB, storage, DAC, Trellis scanning, or recording.
+4. Say why the change exists in the commit message and PR body.
+5. If behavior changes, update the canonical docs in `README.md`, `CURRENT_STATE.md`, or `docs/` in the same change.
 
-## Where to hack
-- **Modes / pad combos:** See `firmware/platformio/src/main.cpp` — the `handlePadCombo()` registry is where new behaviors land.
-- **Effects / audio math:** `AudioEngine.*` holds the DAC ISR and buffer logic. Keep the ISR deterministic; push heavy work into `service()` jobs.
-- **Storage layout:** `Storage.*` + `Slicer.*`. If you add formats beyond RAW, document the transfer flow in the README.
-- **UI colors / pins / timing:** `Config.h` contains the pin map and global constants. Leave comments explaining any new pin choices.
+## Canonical Places To Edit
+- Modes and controls: `firmware/platformio/src/main.cpp`, `PadInput.*`, `PadActionRouter.*`
+- Audio path: `AudioEngine.*`
+- Storage and slicing: `Storage.*`, `Slicer.*`, `RecordingController.*`
+- Timing and constants: `Config.h`
+- User-facing behavior docs: `docs/controls.md`, `docs/workflow.md`, `CURRENT_STATE.md`
 
-## Adding tutorials or tools
-- Drop hands-on walkthroughs into `docs/` and reference them from the README.
-- Scripts (Python, Processing, etc.) belong in `tools/` or `examples/` depending on whether they are production helpers or learning aids.
+## Commenting Policy
+Do not aim for exhaustive line-by-line comments.
 
-## Testing checklist
-- `examples/midi_clock_sender.py` can clock the board without a DAW — use it in demos.
-- Verify LittleFS still formats and mounts after your changes (first boot serial log).
-- Mash Alt/Shift combos while clocking to ensure your feature does not stall the UI loop.
+Prefer:
+- targeted comments for hardware traps
+- ISR-safety notes
+- queueing or storage invariants
+- comments that explain why a weird tradeoff exists
 
-Thanks for keeping the punk-rock sampler energy alive.
+Avoid:
+- narrating every obvious assignment
+- duplicating doc content in many files
+- turning the code into a prose transcript
+
+If behavior needs a broad explanation, put it in `docs/` and link to the relevant file.
+
+## Testing Checklist
+- Firmware build: `cd firmware/platformio && pio run -e adafruit_trellis_m4`
+- Host tests: `./scripts/run_host_tests.sh`
+- Hardware smoke checks:
+  - board enumerates on USB serial and MIDI
+  - pads register
+  - MIDI clock advances playback
+  - bundled demo slices play
+  - recording and reslicing still work on at least one row
+
+## Docs Matter
+This repo is part instrument, part teaching tool, part firmware project. If you change controls, transport, sample loading, or architecture, update the docs in the same stack.

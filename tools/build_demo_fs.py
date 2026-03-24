@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
-Build a deterministic LittleFS image packed with demo slices.
+Prepare a deterministic staged demo pack for the current firmware.
 
-This script is a fussy, repeatable pipeline that:
-- Validates/ingests per-row WAV files.
-- Emits RAW slices in the firmware's expected layout (A/A1.raw..A8.raw etc.).
-- Drops a manifest.json documenting exactly what was baked.
-- Invokes PlatformIO's `buildfs` target so `littlefs.bin` is ready to flash.
+This script is a repeatable pipeline that:
+- validates or ingests per-row WAV files
+- emits RAW slices in the firmware's expected layout (A/A1.raw..A8.raw etc.)
+- drops a manifest.json documenting exactly what was staged
+- optionally attempts the legacy PlatformIO `buildfs` target for maintainers who still need it
 """
 import argparse
 import datetime
@@ -131,10 +131,11 @@ def main():
     parser = argparse.ArgumentParser(
         description=textwrap.dedent(
             """
-            Turn per-row WAV files into RAW slices and a flashable LittleFS image.
+            Turn per-row WAV files into staged RAW slices for the current firmware.
 
             By default the script looks for A.wav/B.wav/C.wav/D.wav inside --input-dir
             and writes the resulting RAW tree into firmware/platformio/data.
+            Use --buildfs only if you intentionally want the legacy LittleFS image step.
             """
         )
     )
@@ -148,7 +149,7 @@ def main():
     )
     parser.add_argument("--stage-dir", type=Path, default=DATA_DIR,
                         help="Where to write RAWs and manifest.json (default: firmware/platformio/data)")
-    parser.add_argument("--skip-buildfs", action="store_true", help="Skip calling PlatformIO buildfs")
+    parser.add_argument("--buildfs", action="store_true", help="Attempt the legacy PlatformIO buildfs step after staging RAWs")
     parser.add_argument("--firmware-version", help="Override firmware tag recorded in the manifest")
     args = parser.parse_args()
 
@@ -193,7 +194,7 @@ def main():
         render_command = "python " + " ".join(sys.argv)
 
     littlefs_bin = None
-    if not args.skip_buildfs:
+    if args.buildfs:
         littlefs_bin = _buildfs()
 
     manifest = build_manifest(rows_manifest, render_command, firmware_version, littlefs_bin)

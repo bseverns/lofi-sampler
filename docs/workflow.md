@@ -1,55 +1,45 @@
+# Workflow, Timing, And Files
 
-# Workflow, timing, and files
+For the canonical pad behaviors, see [`controls.md`](controls.md). For the narrated teaching flow, see [`demo-exercises.md`](demo-exercises.md).
 
-Need a refresher on which pad combo does what? Bounce back to the [Control Atlas](../README.md#control-atlas-pad-combos-vs-firmware-branches) for the UI-side cheatsheet.
-Looking for a guided walkthrough? See [Demo Exercises](demo-exercises.md).
+## Clock Math
+- USB MIDI clock = 24 PPQN
+- 4/4, 8 steps per bar = 12 clocks per step
+- Step duration at tempo `T` BPM:
+  - `(60 / T) * (beats_per_bar / steps_per_bar)` seconds
 
-**Clock math**
-- USB MIDI Clock = 24 PPQN
-- 4/4, 8 steps/bar → **12 clocks/step**
-- Step duration at tempo T BPM: `(60/T) * (beats_per_bar / steps_per_bar)` seconds
+## Files
+- Per row:
+  - `/<Row>/<Row>1.raw` through `/<Row>/<Row>8.raw`
+  - `/<Row>/source.raw` when the row has recorded or staged source material
+  - `/<Row>/source_prev.raw` when a previous take has been preserved
+- Audio format:
+  - signed 16-bit little-endian PCM
+  - mono
+  - 22050 Hz
 
-**Files**
-- Per row: `/<Row>/source.raw` (optional), and `/<Row>/<Row>1.raw … <Row>8.raw`
-- RAW format: signed 16-bit little‑endian, mono, 22,050 Hz
+## Playback Model
+- On each step boundary, active rows preload that row's current slice.
+- The foreground `service()` path handles storage work and gain/fx jobs.
+- The ISR only mixes ready samples and writes the DAC.
 
-**Playback**
-- On step boundary:
-  - If gate ON for row R at column C, preload `R{C+1}.raw` into row buffer.
-  - ISR mixes 4 voices: `sum = clamp(sum of int16)`; write to DAC (12‑bit).
+## Recording Model
+- Recording captures a new source for one row.
+- On stop, the source becomes `source.raw` and the row is re-sliced into eight files.
+- Restore swaps back `source_prev.raw` when it exists.
+- Reslice rebuilds the eight row slices from the current row source.
 
-**Recording**
-- While recording, the player continues; the row being recorded is muted.
-- On stop: slice buffer into 8 equal parts → write as raw files.
+## Timing Swim-Lane
 
-## Pad combo cheat-sheet (per row)
+```text
+Time --------------------------------------------------------------->
+MIDI Clock : |Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|...
+             |<----------- 12 clocks per step ----------->|
 
-- **Shift (hold col 8) + row pad** → arm/cut tape style **record**.
-- **Shift + lit step** → fire a **stutter blast** of that slice (no gate change, auto velocity curve).
-- **Alt (hold col 7) + row pad** → **erase** that row’s slices + `source.raw`.
-- **Shift + Alt + row pad** → **reslice** by pulling `source.raw` from flash into RAM, then rewriting all eight slices (no gate changes; if `source.raw` is missing nothing new hits disk).
----
-
-## Timing Swim-Lane (MIDI vs. UI vs. Storage vs. DAC)
-
-Low-tech diagram, high-truth content. Each lane is a core subsystem; rows scroll left→right in real time. Use it to reason about back-pressure and why the ISR is sacred.
-
-```
-Time ───────────────────────────────────────────────────────────────────────────▶
-MIDI Clock : |Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick|Tick| ...
-             |<--12 clocks-->|
-UI loop    : [scan pads]─┐                         ┌─[scan pads]─┐
-             │             │                         │            │
-             └─(modifier flags set)───┐   ┌─(gate flip / record cmd)┘
-Storage I/O:                (idle)    │   │   (erase, slice writes)
-                                       ▼   ▼
-             ────────────┬─────────────┬────────────────────────────
-                          preload step │
-DAC ISR    : [mix voices @22.05 kHz | mix | mix | mix | mix | mix | …]
-             └── runs every 45.35 µs no matter what the main loop is doing ────
+UI loop    : [scan pads] [route combo] [toggle gate] [queue jobs] ...
+Storage    :            [read slice]          [write source/slices]
+Audio loop :            [service jobs] [pump streams] [pump gains]
+DAC ISR    : [mix] [mix] [mix] [mix] [mix] [mix] [mix] [mix] ...
 ```
 
-Key moments:
-- **Clock boundary:** every 12 MIDI clocks we bump `stepIndex`, preload slices, and the DAC keeps hammering samples without missing a beat.
-- **UI bursts:** modifier pads set flags instantly; the expensive work (record stop → slice writes) happens just after the UI event, while the ISR keeps breathing.
-- **Storage spikes:** erase/slice writes block the main loop for a beat, but they’re intentionally outside the ISR so audio playback stays stable.
+Key point: storage and control work can be lumpy, but the ISR must stay boring and deterministic.

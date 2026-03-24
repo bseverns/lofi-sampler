@@ -1,34 +1,21 @@
-# Demo samples + LittleFS bake
+# Demo Samples And Sample Loading
 
-Welcome to the sampler's lunchbox lab notebook. This page is the recipe for
-turning human-friendly WAVs into the bytes we actually flash onto the Trellis
-M4's QSPI flash. Every time we cut a demo image we want auditors (and our
-future selves) to know exactly what went down.
+This page describes the current, honest sample-loading story.
 
-## What the pipeline does
+## Current Known-Good Path
+Freshly flashed firmware includes a bundled read-only demo slice set for playback. That means a board can boot, receive MIDI clock, and play the demo material without a separate filesystem upload step.
 
-1. **Validate and slice**: each row (A/B/C/D) gets a mono, 16-bit PCM, 22050 Hz
-   WAV. The script cuts it into eight equal-ish slices plus a `source.raw`
-   reference, dropping them into `firmware/platformio/data/<Row>/`.
-2. **Document**: `manifest.json` lives next to the raws and records hashes,
-   command line, and firmware tag.
-3. **Pack**: `pio run -t buildfs` wraps the staging directory into
-   `.pio/build/adafruit_trellis_m4/littlefs.bin`.
-4. **Flash automatically**: `pio run -t upload` now triggers an `uploadfs`
-   after firmware upload, so fresh boards boot with the baked demo set.
+That bundled set is built from the canonical slice source tree at:
+- [`firmware/platformio/data/`](../firmware/platformio/data/)
 
-## Prep your WAVs
+## Important Current-State Notes
+- The old `buildfs` / `uploadfs` story is **not** the canonical board path today.
+- The bundled demo pack is the trusted playback surface.
+- Bundled demo playback does **not** mean every archival `/factory` or `source.raw` workflow is active in the same way as older docs implied.
+- If you need row-local source material for reslice/restore experiments, record a fresh take on that row.
 
-* Mono, 16-bit PCM, **22050 Hz**. If you're unsure, force it with SoX:
-  ```sh
-  sox input.wav -c1 -r22050 -b16 output.wav
-  ```
-* Name them `A.wav`, `B.wav`, `C.wav`, `D.wav` inside a working directory
-  (defaults to `./examples/`). You can override per-row paths with `--row`.
-
-## Run the bake
-
-From the repo root:
+## Regenerating The Demo Pack
+If you want to refresh the staged demo raws from WAV files:
 
 ```sh
 python tools/build_demo_fs.py \
@@ -36,34 +23,27 @@ python tools/build_demo_fs.py \
   --stage-dir firmware/platformio/data
 ```
 
-This will:
+That repopulates `firmware/platformio/data/` with per-row slices and `source.raw` staging files.
 
-* Clean and repopulate `firmware/platformio/data/` with `A/`, `B/`, `C/`, `D/`
-  folders containing `source.raw` plus `X1.raw`..`X8.raw` slices.
-* Write `firmware/platformio/data/manifest.json` with SHA-256s and the exact
-  command line used.
-* Invoke `pio run -t buildfs` to generate
-  `.pio/build/adafruit_trellis_m4/littlefs.bin`.
-
-If you just need the RAWs/manifest without building the filesystem image (e.g.,
-for a quick hash audit), pass `--skip-buildfs`.
-
-## Flashing a board
-
-With the image generated, a normal upload will also flash the filesystem:
+Then regenerate the bundled firmware header:
 
 ```sh
-pio run -t upload
+python tools/build_bundled_demo_header.py
 ```
 
-Behind the scenes `firmware/platformio/scripts/flash_fs.py` runs both `buildfs`
-and `uploadfs` around the firmware upload step. If `littlefs.bin` is missing,
-it will skip the filesystem upload and tell you to run the pipeline above.
+Then rebuild the firmware:
 
-## Provenance + tagging
+```sh
+cd firmware/platformio
+pio run
+```
 
-* `manifest.json` includes `firmware_version` (from `git describe` unless you
-  override with `--firmware-version`) and `render_command` so firmware tags can
-  cite the exact demo payload.
-* Commit the manifest alongside firmware tags. Treat it like liner notes: it's
-  the authoritative record of what bytes shipped.
+## What Lives Where
+- `firmware/platformio/data/`: canonical demo source assets in row folders
+- `firmware/platformio/lib/Adafruit_LittleFS/src/generated/BundledDemoSlices.h`: generated bundled playback header compiled into firmware
+- `examples/`: convenient source WAVs and host-side demo helpers
+
+## When To Use Which Path
+- Want a known-good board quickly: flash the firmware and use the bundled demo pack.
+- Want to audition new WAV material: rebuild the staged data and bundled header, then rebuild firmware.
+- Want to record on hardware: use the live record workflow and let the board write row-local source/slices.
