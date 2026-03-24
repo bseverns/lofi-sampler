@@ -21,13 +21,46 @@ static Adafruit_ZeroTimer zt = Adafruit_ZeroTimer(3); // TC3/4/5 depend on chip;
 
 static AudioEngine* s_self = nullptr;
 
+extern "C" void TC3_Handler() {
+  Adafruit_ZeroTimer::timerHandler(3);
+}
+
 namespace {
 static constexpr uint16_t DEFAULT_FADE_FRAMES = 96;
 static constexpr uint16_t STOP_FADE_FRAMES    = 128;
+
+#if defined(DAC) && defined(__SAMD51__)
+static void primeDacOutputs() {
+  // Use the core helper once in setup context so pin muxing and DAC enable
+  // happen outside the audio ISR.
+  analogWrite(DAC_PIN_L, 2048);
+  analogWrite(DAC_PIN_R, 2048);
+}
+
+static inline void writeDacSample(uint16_t value) {
+  if (DAC->STATUS.bit.READY0 && !DAC->SYNCBUSY.bit.DATA0) {
+    DAC->DATA[0].reg = value;
+  }
+  if (DAC->STATUS.bit.READY1 && !DAC->SYNCBUSY.bit.DATA1) {
+    DAC->DATA[1].reg = value;
+  }
+}
+#else
+static void primeDacOutputs() {
+  analogWrite(DAC_PIN_L, 2048);
+  analogWrite(DAC_PIN_R, 2048);
+}
+
+static inline void writeDacSample(uint16_t value) {
+  analogWrite(DAC_PIN_L, value);
+  analogWrite(DAC_PIN_R, value);
+}
+#endif
 }
 
 bool AudioEngine::begin() {
   analogWriteResolution(12);
+  primeDacOutputs();
   s_self = this;
   selfTestPhase = 0;
   selfTestPhaseStep = 0;
@@ -269,8 +302,7 @@ void AudioEngine::isr() {
   if (out < -2047) out = -2047;
   if (out >  2047) out =  2047;
   uint16_t dac = (uint16_t)(out + 2048); // 0..4095
-  analogWrite(DAC_PIN_L, dac);
-  analogWrite(DAC_PIN_R, dac);
+  writeDacSample(dac);
 }
 
 bool AudioEngine::enqueueJob(const Job& job) {
@@ -624,16 +656,6 @@ void AudioEngine::cleanupVoice(uint8_t voice) {
     noInterrupts();
     vpos[voice] = 0;
     interrupts();
-
-    if (!voiceDiagPending[voice]) {
-      voiceDiagPending[voice] = true;
-      Job job;
-      job.type = JobType::Diagnostics;
-      job.voice = voice;
-      if (!enqueueJob(job)) {
-        voiceDiagPending[voice] = false;
-      }
-    }
   }
 }
 

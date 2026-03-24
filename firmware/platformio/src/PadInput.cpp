@@ -12,6 +12,10 @@ void ModifierTracker::reset() {
   for (uint8_t i = 0; i < 4; ++i) {
     altState[i] = false;
     shiftState[i] = false;
+    altTapPending[i] = false;
+    shiftTapPending[i] = false;
+    altChordUsed[i] = false;
+    shiftChordUsed[i] = false;
   }
 }
 
@@ -19,32 +23,50 @@ uint8_t ModifierTracker::owningRow(uint8_t modifierRow) const {
   return (modifierRow + 4 - MOD_ROW_OFFSET) % 4;
 }
 
+bool ModifierTracker::isModifierPad(uint8_t row, uint8_t col) const {
+  return row < 4 && (col == COL_ALT || col == COL_SHIFT);
+}
+
 bool ModifierTracker::handlePress(uint8_t row, uint8_t col) {
-  if (row >= 4) return false;
+  if (!isModifierPad(row, col)) return false;
   uint8_t owner = owningRow(row);
   if (col == COL_ALT) {
     altState[owner] = true;
+    altTapPending[owner] = true;
+    altChordUsed[owner] = false;
     return true;
   }
-  if (col == COL_SHIFT) {
-    shiftState[owner] = true;
-    return true;
-  }
-  return false;
+  shiftState[owner] = true;
+  shiftTapPending[owner] = true;
+  shiftChordUsed[owner] = false;
+  return true;
 }
 
-bool ModifierTracker::handleRelease(uint8_t row, uint8_t col) {
-  if (row >= 4) return false;
+ModifierReleaseResult ModifierTracker::handleRelease(uint8_t row, uint8_t col) {
+  if (!isModifierPad(row, col)) return ModifierReleaseResult::NotModifier;
   uint8_t owner = owningRow(row);
   if (col == COL_ALT) {
+    bool tapAsStep = altTapPending[owner] && !altChordUsed[owner];
     altState[owner] = false;
-    return true;
+    altTapPending[owner] = false;
+    altChordUsed[owner] = false;
+    return tapAsStep ? ModifierReleaseResult::TapAsStep : ModifierReleaseResult::UsedAsModifier;
   }
-  if (col == COL_SHIFT) {
-    shiftState[owner] = false;
-    return true;
+  bool tapAsStep = shiftTapPending[owner] && !shiftChordUsed[owner];
+  shiftState[owner] = false;
+  shiftTapPending[owner] = false;
+  shiftChordUsed[owner] = false;
+  return tapAsStep ? ModifierReleaseResult::TapAsStep : ModifierReleaseResult::UsedAsModifier;
+}
+
+void ModifierTracker::noteModifierUse(uint8_t row, const PadModifiers& mods) {
+  if (row >= 4) return;
+  if (mods.alt && altTapPending[row]) {
+    altChordUsed[row] = true;
   }
-  return false;
+  if (mods.shift && shiftTapPending[row]) {
+    shiftChordUsed[row] = true;
+  }
 }
 
 PadModifiers ModifierTracker::modifiersFor(uint8_t row) const {

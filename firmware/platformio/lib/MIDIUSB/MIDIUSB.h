@@ -93,11 +93,21 @@ template <typename Midi, typename = void>
 struct has_write_packet : std::false_type {};
 
 template <typename Midi>
-struct has_write_packet<Midi, std::void_t<decltype(
-                               std::declval<Midi &>().write(
-                                   reinterpret_cast<const uint8_t *>(
-                                       std::declval<const midiEventPacket_t *>()),
-                                   sizeof(midiEventPacket_t)))>> : std::true_type {};
+struct has_write_packet<
+    Midi, std::void_t<decltype(std::declval<Midi &>().writePacket(
+              reinterpret_cast<const uint8_t *>(
+                  std::declval<const midiEventPacket_t *>())))>>
+    : std::true_type {};
+
+template <typename Midi, typename = void>
+struct has_write_bytes : std::false_type {};
+
+template <typename Midi>
+struct has_write_bytes<Midi, std::void_t<decltype(
+                              std::declval<Midi &>().write(
+                                  reinterpret_cast<const uint8_t *>(
+                                      std::declval<const midiEventPacket_t *>()),
+                                  sizeof(midiEventPacket_t)))>> : std::true_type {};
 
 template <typename Midi>
 struct has_any_tx
@@ -106,7 +116,8 @@ struct has_any_tx
                     has_send_midi_packet<Midi>::value ||
                     has_send_packet_ptr<Midi>::value ||
                     has_send_packet_call<Midi>::value ||
-                    has_write_packet<Midi>::value> {};
+                    has_write_packet<Midi>::value ||
+                    has_write_bytes<Midi>::value> {};
 
 template <int I> struct priority_tag : priority_tag<I - 1> {};
 template <> struct priority_tag<-1> {};
@@ -117,14 +128,21 @@ public:
   // Mirror the MIDIUSB API surface that the NeoTrellis M4 library expects.
   // Each call forwards straight to the TinyUSB MIDI device so behavior stays
   // identical, just without the duplicate USB stack.
-  midiEventPacket_t read(void) { return adaptPacket(usb_midi.read()); }
+  midiEventPacket_t read(void) {
+    uint8_t raw[4] = {0, 0, 0, 0};
+    midiEventPacket_t packet{};
+    if (usb_midi.readPacket(raw)) {
+      std::memcpy(&packet, raw, sizeof(packet));
+    }
+    return packet;
+  }
 
   void sendMIDI(const midiEventPacket_t &event) {
     static_assert(detail::has_any_tx<Adafruit_USBD_MIDI>::value,
                   "Adafruit_USBD_MIDI needs a send-like routine; update the "
                   "shim to match the library's transmit API.");
 
-    forwardSend(usb_midi, event, detail::priority_tag<4>{});
+    forwardSend(usb_midi, event, detail::priority_tag<5>{});
   }
 
   void flush(void) { usb_midi.flush(); }
@@ -148,30 +166,38 @@ private:
 
   template <typename Midi>
   static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
-                          detail::priority_tag<4>)
+                          detail::priority_tag<5>)
       -> decltype(midi.sendMIDI(event), void()) {
     midi.sendMIDI(event);
   }
 
   template <typename Midi>
   static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
-                          detail::priority_tag<3>)
+                          detail::priority_tag<4>)
       -> decltype(midi.send(event), void()) {
     midi.send(event);
   }
 
   template <typename Midi>
   static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
-                          detail::priority_tag<2>)
+                          detail::priority_tag<3>)
       -> decltype(midi.send(&event), void()) {
     midi.send(&event);
   }
 
   template <typename Midi>
   static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
-                          detail::priority_tag<1>)
+                          detail::priority_tag<2>)
       -> decltype(midi.sendPacket(event), void()) {
     midi.sendPacket(event);
+  }
+
+  template <typename Midi>
+  static auto forwardSend(Midi &midi, const midiEventPacket_t &event,
+                          detail::priority_tag<1>)
+      -> decltype(midi.writePacket(reinterpret_cast<const uint8_t *>(&event)),
+                  void()) {
+    midi.writePacket(reinterpret_cast<const uint8_t *>(&event));
   }
 
   template <typename Midi>
@@ -186,13 +212,10 @@ private:
   template <typename Midi>
   static void forwardSend(Midi &, const midiEventPacket_t &,
                           detail::priority_tag<-1>) {
-#if defined(ARDUINO)
-#warning "No Adafruit_USBD_MIDI send routine detected; MIDIUSB shim sendMIDI() will be a no-op."
-#endif
+    // No supported transmit primitive was found; leave this as a no-op.
   }
 };
 
 // The legacy header exposes a global MidiUSB instance. We keep that contract,
 // but implement it inline so there is no separate translation unit to ship.
 [[maybe_unused]] static MIDIUSB_t MidiUSB;
-

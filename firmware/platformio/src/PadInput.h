@@ -7,6 +7,12 @@ struct PadModifiers {
   bool shift;
 };
 
+enum class ModifierReleaseResult : uint8_t {
+  NotModifier = 0,
+  UsedAsModifier,
+  TapAsStep,
+};
+
 // Result contract for PadComboAction callbacks:
 // - NoMatch: callback ignored the press, fall through to the next handler/default gate toggle.
 // - MatchedContinue: callback handled the press but wants the chain to continue (layered FX, logging, etc.).
@@ -24,14 +30,20 @@ enum class PadActionResult : uint8_t {
 class ModifierTracker {
 public:
   void reset();
+  bool isModifierPad(uint8_t row, uint8_t col) const;
   bool handlePress(uint8_t row, uint8_t col);
-  bool handleRelease(uint8_t row, uint8_t col);
+  ModifierReleaseResult handleRelease(uint8_t row, uint8_t col);
+  void noteModifierUse(uint8_t row, const PadModifiers& mods);
   PadModifiers modifiersFor(uint8_t row) const;
 
 private:
   uint8_t owningRow(uint8_t modifierRow) const;
   bool altState[4] = {false, false, false, false};
   bool shiftState[4] = {false, false, false, false};
+  bool altTapPending[4] = {false, false, false, false};
+  bool shiftTapPending[4] = {false, false, false, false};
+  bool altChordUsed[4] = {false, false, false, false};
+  bool shiftChordUsed[4] = {false, false, false, false};
 };
 
 typedef PadActionResult (*PadComboAction)(uint8_t row, uint8_t col, const PadModifiers& mods);

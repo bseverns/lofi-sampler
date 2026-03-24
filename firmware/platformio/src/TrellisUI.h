@@ -18,7 +18,10 @@ public:
   StepState getStep(uint8_t row, uint8_t col) const { return steps[row][col]; }
   void setModifiers(uint8_t row, const PadModifiers& mods);
   void draw(uint8_t step, int recRow); // recRow = -1 if none
-  // returns -1 if no event; otherwise packed (row<<8) | col | (0x8000 for press)
+  // returns -1 if no event; otherwise packed as:
+  // bits 0..7   = col
+  // bits 8..15  = row
+  // bit  16     = pressed flag
   int32_t pollEvent();
 
 private:

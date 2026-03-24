@@ -8,7 +8,15 @@ ClockTransport::ClockTransport(uint8_t stepsPerBarRef, uint8_t clocksPerStepRef,
 bool ClockTransport::handleRealtime(uint8_t statusByte) {
   switch (statusByte) {
     case 0xF8: { // Timing Clock (24 PPQN)
-      if (!playing) return false;
+      if (!playing) {
+        // Some hosts/modules emit MIDI clock without an explicit Start.
+        // Treat the first clock as a transport start so the sequencer
+        // still advances from clock-only sources.
+        playing = true;
+        midiClockCount = 0;
+        stepIndex = 0;
+        return true;
+      }
       ++midiClockCount;
       uint8_t nextStep = (stepIndex + 1) % stepsPerBar;
       uint8_t clocksNeeded = clocksPerStep + swingTicksForStep(nextStep);
@@ -19,11 +27,11 @@ bool ClockTransport::handleRealtime(uint8_t statusByte) {
       }
       return false;
     }
-    case 0xFA: // Start (rewind to step 0 on next clock)
+    case 0xFA: // Start
       playing = true;
       midiClockCount = 0;
-      stepIndex = stepsPerBar - 1;
-      return false;
+      stepIndex = 0;
+      return true;
     case 0xFB: // Continue (keep current step)
       playing = true;
       return false;

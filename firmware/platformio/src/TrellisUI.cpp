@@ -3,6 +3,7 @@
 
 bool TrellisUI::begin() {
   trellis.begin();
+  trellis.autoUpdateNeoPixels(false);
   trellis.setBrightness(255);
   for (uint8_t r=0;r<4;r++)
     for (uint8_t c=0;c<8;c++) {
@@ -62,12 +63,13 @@ void TrellisUI::draw(uint8_t step, int recRow) {
 
 int32_t TrellisUI::pollEvent() {
   int32_t out = -1;
+  trellis.tick();
   if (trellis.available()) {
     keypadEvent e = trellis.read();
     uint8_t k = e.bit.KEY;
     uint8_t r = k / 8, c = k % 8;
     bool pressed = e.bit.EVENT == KEY_JUST_PRESSED;
-    out = ((int32_t)r<<8) | c | (pressed ? 0x8000 : 0);
+    out = ((int32_t)r << 8) | c | (pressed ? 0x10000 : 0);
   }
   return out;
 }
