@@ -6,6 +6,7 @@ This repo's canonical firmware path is **PlatformIO** under [`firmware/platformi
 
 ## Start Here
 - Current status: [`CURRENT_STATE.md`](CURRENT_STATE.md)
+- Filesystem contract: [`docs/filesystem-contract.md`](docs/filesystem-contract.md)
 - Controls: [`docs/controls.md`](docs/controls.md)
 - Audio internals: [`docs/audio-engine.md`](docs/audio-engine.md)
 - Demo/sample workflow: [`docs/demo-samples.md`](docs/demo-samples.md)
@@ -44,6 +45,7 @@ This repo's canonical firmware path is **PlatformIO** under [`firmware/platformi
 
 ## Canonical Docs
 - [`CURRENT_STATE.md`](CURRENT_STATE.md): honest project status, stable surfaces, and active edges.
+- [`docs/filesystem-contract.md`](docs/filesystem-contract.md): v0.1 sample paths, bundled demo behavior, and maintainer-only filesystem lanes.
 - [`docs/controls.md`](docs/controls.md): canonical combo and pad behavior reference.
 - [`docs/workflow.md`](docs/workflow.md): timing model, file layout, and subsystem interaction.
 - [`docs/audio-engine.md`](docs/audio-engine.md): ISR/foreground split and audio job queue.
@@ -58,7 +60,7 @@ This repo's canonical firmware path is **PlatformIO** under [`firmware/platformi
 firmware/platformio/     Canonical firmware project
   src/                   Firmware modules
   lib/                   TinyUSB MIDI shim + bundled demo storage shim
-  data/                  Canonical demo slice source assets
+  data/                  Host-side staged demo slice source assets
   scripts/               Firmware-side helpers (including UF2 generation)
 
 docs/                    User, maintainer, and architecture docs

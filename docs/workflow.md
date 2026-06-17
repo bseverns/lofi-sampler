@@ -1,6 +1,6 @@
 # Workflow, Timing, And Files
 
-For the canonical pad behaviors, see [`controls.md`](controls.md). For the narrated teaching flow, see [`demo-exercises.md`](demo-exercises.md).
+For the filesystem contract, see [`filesystem-contract.md`](filesystem-contract.md). For the canonical pad behaviors, see [`controls.md`](controls.md). For the narrated teaching flow, see [`demo-exercises.md`](demo-exercises.md).
 
 ## Clock Math
 - USB MIDI clock = 24 PPQN
@@ -9,14 +9,11 @@ For the canonical pad behaviors, see [`controls.md`](controls.md). For the narra
   - `(60 / T) * (beats_per_bar / steps_per_bar)` seconds
 
 ## Files
-- Per row:
-  - `/<Row>/<Row>1.raw` through `/<Row>/<Row>8.raw`
-  - `/<Row>/source.raw` when the row has recorded or staged source material
-  - `/<Row>/source_prev.raw` when a previous take has been preserved
-- Audio format:
-  - signed 16-bit little-endian PCM
-  - mono
-  - 22050 Hz
+- The playback surface is `/<Row>/<Row>1.raw` through `/<Row>/<Row>8.raw`.
+- Fresh firmware provides those 32 paths from bundled demo slices.
+- Live recording writes `/<Row>/source.raw` and regenerates that row's eight slices.
+- Restore uses `/<Row>/source_prev.raw` when a previous live source exists.
+- Audio format is signed 16-bit little-endian mono PCM at 22050 Hz.
 
 ## Playback Model
 - On each step boundary, active rows preload that row's current slice.
@@ -27,7 +24,7 @@ For the canonical pad behaviors, see [`controls.md`](controls.md). For the narra
 - Recording captures a new source for one row.
 - On stop, the source becomes `source.raw` and the row is re-sliced into eight files.
 - Restore swaps back `source_prev.raw` when it exists.
-- Reslice rebuilds the eight row slices from the current row source.
+- Reslice rebuilds the eight row slices from the current row source; it is blessed only for rows with source material.
 
 ## Timing Swim-Lane
 

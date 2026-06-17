@@ -26,3 +26,6 @@ c++ -std=c++17 -Wall -Wextra -pedantic \
 
 echo "Running PadActionRouter host tests..."
 "${BUILD_DIR}/pad_action_router_test"
+
+echo "Validating filesystem contract..."
+python3 "${ROOT_DIR}/scripts/validate_filesystem_contract.py"

@@ -3,6 +3,7 @@
 #include "Config.h"
 #include <Adafruit_SPIFlash.h>
 #include <Adafruit_LittleFS.h>
+#include <string.h>
 #include <vector>
 
 namespace ALFS = Adafruit_LittleFS_Namespace;
@@ -10,6 +11,10 @@ namespace ALFS = Adafruit_LittleFS_Namespace;
 Adafruit_FlashTransport_QSPI flashTransport;
 Adafruit_SPIFlash flash(&flashTransport);
 ALFS::LittleFS_QSPIFlash lfs(flash);
+
+namespace {
+static const char* FACTORY_RESTORE_MARKER = "/factory_restored.txt";
+}
 
 bool Storage::begin() {
   if (!flash.begin()) {
@@ -77,6 +82,7 @@ bool Storage::writeSourceWithBackup(char row, const int16_t* src, uint32_t sampl
   String path = sourcePathFor(row);
   String prev = prevSourcePathFor(row);
   copyIfExists(path, prev); // best-effort; ok if missing
+  clearFactoryRestoreMarker();
   return writeRaw(path.c_str(), src, samples);
 }
 
@@ -181,6 +187,16 @@ void Storage::buildDefaultRequired(std::vector<String>& required) {
   }
 }
 
+void Storage::buildRequiredSlices(std::vector<String>& required) {
+  const char rows[4] = {'A','B','C','D'};
+  for (uint8_t r = 0; r < 4; ++r) {
+    for (uint8_t i = 0; i < 8; ++i) {
+      String path = String("/") + rows[r] + "/" + rows[r] + String(i + 1) + ".raw";
+      required.push_back(path);
+    }
+  }
+}
+
 bool Storage::fileExists(const char* path) {
   ALFS::File f = lfs.open(path, FILE_O_READ);
   bool ok = (bool)f;
@@ -255,7 +271,61 @@ void Storage::ensureParentDir(const String& path) {
   lfs.mkdir(parent.c_str());
 }
 
-ManifestCheck Storage::checkManifest(const char* manifestPath) {
+bool Storage::writeMarker(const char* path, const char* message) {
+  if (!path || !message) return false;
+  ALFS::File f = lfs.open(path, FILE_O_WRITE | FILE_O_TRUNCATE | FILE_O_CREAT);
+  if (!f) return false;
+  uint32_t len = strlen(message);
+  uint32_t wr = f.write((const uint8_t*)message, len);
+  f.close();
+  return wr == len;
+}
+
+void Storage::clearFactoryRestoreMarker() {
+  lfs.remove(FACTORY_RESTORE_MARKER);
+}
+
+SliceSetCheck Storage::checkSliceSet() {
+  SliceSetCheck report;
+  if (!mounted) {
+    report.label = F("incomplete");
+    report.message = F("storage not mounted");
+    return report;
+  }
+
+  std::vector<String> required;
+  buildRequiredSlices(required);
+  report.missingSliceCount = countMissing(required);
+  report.playableSlicesPresent = (report.missingSliceCount == 0);
+
+  const char rows[4] = {'A','B','C','D'};
+  for (uint8_t r = 0; r < 4; ++r) {
+    String src = sourcePathFor(rows[r]);
+    if (fileExists(src.c_str())) {
+      report.rowSourcesPresent = true;
+      break;
+    }
+  }
+  report.factoryRestored = fileExists(FACTORY_RESTORE_MARKER);
+
+  if (!report.playableSlicesPresent) {
+    report.label = F("incomplete");
+    report.message = String("incomplete slice set: ") + report.missingSliceCount + " missing slice file(s)";
+  } else if (report.factoryRestored) {
+    report.label = F("factory-restored");
+    report.message = F("using experimental factory-restored slice set");
+  } else if (report.rowSourcesPresent) {
+    report.label = F("live-filesystem");
+    report.message = F("using live filesystem slices with row source files");
+  } else {
+    report.label = F("bundled-demo");
+    report.message = F("using bundled demo slices");
+  }
+
+  return report;
+}
+
+ManifestCheck Storage::checkLegacyManifest(const char* manifestPath) {
   ManifestCheck report;
   if (!mounted) {
     report.message = F("Storage not mounted");
@@ -268,11 +338,11 @@ ManifestCheck Storage::checkManifest(const char* manifestPath) {
   if (readFileToString(manifestPath, payload)) {
     report.manifestFound = true;
     if (!parseManifest(payload, required, version)) {
-      report.message = F("manifest.json unreadable (no required paths detected)");
+      report.message = F("legacy manifest unreadable (no required paths detected)");
       return report;
     }
   } else {
-    report.message = F("manifest.json missing; using default slice map");
+    report.message = F("legacy manifest missing; using default slice/source map");
     buildDefaultRequired(required);
   }
 
@@ -282,12 +352,12 @@ ManifestCheck Storage::checkManifest(const char* manifestPath) {
   report.ok = report.manifestFound && report.filesPresent;
 
   if (report.ok) {
-    report.message = F("manifest ok");
+    report.message = F("legacy manifest ok");
     if (report.version.length() > 0) {
       report.message += " (v" + report.version + ")";
     }
   } else if (report.manifestFound) {
-    report.message = String("manifest incomplete: ") + report.missingCount + " missing file(s)";
+    report.message = String("legacy manifest incomplete: ") + report.missingCount + " missing file(s)";
   } else {
     report.message += String("; ") + report.missingCount + " missing file(s) detected";
   }
@@ -295,7 +365,7 @@ ManifestCheck Storage::checkManifest(const char* manifestPath) {
   return report;
 }
 
-ManifestCheck Storage::restoreFactoryDemo(const char* manifestPath, const char* factoryPrefix) {
+ManifestCheck Storage::restoreExperimentalFactorySet(const char* manifestPath, const char* factoryPrefix) {
   ManifestCheck report;
   if (!mounted) {
     report.message = F("Storage not mounted");
@@ -337,9 +407,11 @@ ManifestCheck Storage::restoreFactoryDemo(const char* manifestPath, const char* 
   report.version = version;
 
   if (report.ok) {
-    report.message = String("Factory restore ok (copied ") + restored + ")";
+    writeMarker(FACTORY_RESTORE_MARKER, "experimental factory restore completed");
+    report.message = String("Experimental factory restore ok (copied ") + restored + ")";
   } else {
-    report.message = String("Factory restore incomplete: ") + failures + " missing source file(s)";
+    clearFactoryRestoreMarker();
+    report.message = String("Experimental factory restore incomplete: ") + failures + " missing source file(s)";
   }
   return report;
 }

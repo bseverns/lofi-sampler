@@ -14,7 +14,7 @@ Keep the repo teachable, reproducible, and honest.
 - Audio path: `AudioEngine.*`
 - Storage and slicing: `Storage.*`, `Slicer.*`, `RecordingController.*`
 - Timing and constants: `Config.h`
-- User-facing behavior docs: `docs/controls.md`, `docs/workflow.md`, `CURRENT_STATE.md`
+- User-facing behavior docs: `docs/filesystem-contract.md`, `docs/controls.md`, `docs/workflow.md`, `CURRENT_STATE.md`
 
 ## Commenting Policy
 Do not aim for exhaustive line-by-line comments.

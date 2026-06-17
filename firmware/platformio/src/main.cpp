@@ -67,11 +67,16 @@ static void toggleStepGate(uint8_t row, uint8_t col) {
 }
 
 // ---------- Helpers ----------
-static void logManifest(const ManifestCheck& status) {
+static void logSliceSet(const SliceSetCheck& status) {
+  Serial.print(F("[filesystem] "));
+  Serial.println(status.message);
+}
+
+static void logLegacyManifest(const ManifestCheck& status) {
   if (status.ok) {
-    Serial.print(F("[manifest] OK: "));
+    Serial.print(F("[legacy manifest] OK: "));
   } else {
-    Serial.print(F("[manifest] WARN: "));
+    Serial.print(F("[legacy manifest] WARN: "));
   }
   Serial.println(status.message);
 }
@@ -80,14 +85,16 @@ static void handleSerialCommands() {
   while (Serial.available()) {
     char c = Serial.read();
     if (c == 'f' || c == 'F') {
-      Serial.println(F("Factory demo reset requested"));
+      Serial.println(F("Experimental factory restore requested"));
       clockTransport.stop();
       audio.stop();
-      auto restore = storage.restoreFactoryDemo();
+      auto restore = storage.restoreExperimentalFactorySet();
       Serial.println(restore.message);
-      manifestStatus = storage.checkManifest();
-      logManifest(manifestStatus);
+      logSliceSet(storage.checkSliceSet());
       audio.start();
+    } else if (c == 'm' || c == 'M') {
+      manifestStatus = storage.checkLegacyManifest();
+      logLegacyManifest(manifestStatus);
     } else if (c == 't' || c == 'T') {
       Serial.println(F("DAC self-test tone"));
       audio.playSelfTestTone();
@@ -144,8 +151,7 @@ void setup() {
     Serial.println(F("Storage init failed; LittleFS unavailable"));
     while (1) { delay(10); }
   }
-  manifestStatus = storage.checkManifest();
-  logManifest(manifestStatus);
+  logSliceSet(storage.checkSliceSet());
 #endif
 
 #if NTM4_SETUP_DIAG_STAGE >= 3
@@ -177,8 +183,7 @@ void setup() {
       gates[r][c] = defaultStepState();
     }
   }
-  manifestStatus = storage.checkManifest();
-  logManifest(manifestStatus);
+  logSliceSet(storage.checkSliceSet());
   ui.begin();
   audio.begin();
   audio.attachStorage(&storage);
@@ -194,7 +199,7 @@ void setup() {
   for (uint8_t r = 0; r < 4; ++r) {
     lastDrawModifiers[r] = {false, false};
   }
-  Serial.println(F("Serial commands: t=self-test tone, f=factory demo restore"));
+  Serial.println(F("Serial commands: t=self-test tone, m=legacy manifest check, f=experimental factory restore"));
 }
 
 // ---------- Loop ----------

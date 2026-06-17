@@ -12,6 +12,15 @@ struct ManifestCheck {
   String message;               // human-readable diagnostic
 };
 
+struct SliceSetCheck {
+  bool playableSlicesPresent = false; // true when all 32 row slice paths are readable
+  bool rowSourcesPresent = false;     // true when any /<Row>/source.raw exists
+  bool factoryRestored = false;       // true when the experimental factory marker exists
+  uint16_t missingSliceCount = 0;
+  String label;                       // bundled-demo, live-filesystem, factory-restored, incomplete
+  String message;                     // human-readable diagnostic
+};
+
 class Storage {
 public:
   bool begin();
@@ -41,17 +50,21 @@ public:
   // Ensure row folders exist
   void ensureTree();
 
-  // Probe the demo manifest (manifest.json) and confirm the listed files exist.
-  ManifestCheck checkManifest(const char* manifestPath = "/manifest.json");
+  // Check the blessed v0.1 playback contract: 32 playable row slices.
+  SliceSetCheck checkSliceSet();
 
-  // Attempt to repopulate the demo data from a bundled copy (default: /factory/*).
-  ManifestCheck restoreFactoryDemo(const char* manifestPath = "/manifest.json",
-                                   const char* factoryPrefix = "/factory");
+  // Legacy/internal: probe manifest.json and confirm the listed files exist.
+  ManifestCheck checkLegacyManifest(const char* manifestPath = "/manifest.json");
+
+  // Experimental maintainer path: repopulate data from /factory/* if provisioned.
+  ManifestCheck restoreExperimentalFactorySet(const char* manifestPath = "/manifest.json",
+                                              const char* factoryPrefix = "/factory");
 
 private:
   bool readFileToString(const char* path, String& out);
   bool parseManifest(const String& payload, std::vector<String>& required, String& version);
   void buildDefaultRequired(std::vector<String>& required);
+  void buildRequiredSlices(std::vector<String>& required);
   bool fileExists(const char* path);
   bool copyIfExists(const String& src, const String& dst);
   String sourcePathFor(char row) const;
@@ -59,6 +72,8 @@ private:
   uint16_t countMissing(const std::vector<String>& required);
   bool copyFile(const char* src, const char* dst);
   void ensureParentDir(const String& path);
+  bool writeMarker(const char* path, const char* message);
+  void clearFactoryRestoreMarker();
 
   bool mounted = false;
 };

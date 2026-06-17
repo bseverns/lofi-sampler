@@ -2,8 +2,8 @@
 """Generate the bundled demo-slice header used by the current firmware.
 
 The current known-good playback path ships a read-only demo slice pack compiled
-into the firmware. This script regenerates that header from the canonical staged
-RAW files in `firmware/platformio/data/`.
+into the firmware. This script regenerates that header from host-side staged RAW
+files in `firmware/platformio/data/`.
 """
 from pathlib import Path
 

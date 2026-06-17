@@ -1,21 +1,20 @@
 # Demo Samples And Sample Loading
 
-This page describes the current, honest sample-loading story.
+For the runtime contract, see [`filesystem-contract.md`](filesystem-contract.md). This page is the maintainer guide for refreshing the bundled demo material.
 
-## Current Known-Good Path
-Freshly flashed firmware includes a bundled read-only demo slice set for playback. That means a board can boot, receive MIDI clock, and play the demo material without a separate filesystem upload step.
+## Current Board Path
 
-That bundled set is built from the canonical slice source tree at:
-- [`firmware/platformio/data/`](../firmware/platformio/data/)
+The public v0.1 board path is:
 
-## Important Current-State Notes
-- The old `buildfs` / `uploadfs` story is **not** the canonical board path today.
-- The bundled demo pack is the trusted playback surface.
-- Bundled demo playback does **not** mean every archival `/factory` or `source.raw` workflow is active in the same way as older docs implied.
-- If you need row-local source material for reslice/restore experiments, record a fresh take on that row.
+1. Flash firmware.
+2. Play the bundled demo slices immediately.
+3. Record rows on hardware when you want live material.
 
-## Regenerating The Demo Pack
-If you want to refresh the staged demo raws from WAV files:
+There is no required `buildfs` / `uploadfs` step for normal use. The bundled slice header is the trusted demo playback surface.
+
+## Refreshing Bundled Demo Material
+
+Rebuild staged row data from WAV files:
 
 ```sh
 python tools/build_demo_fs.py \
@@ -23,27 +22,29 @@ python tools/build_demo_fs.py \
   --stage-dir firmware/platformio/data
 ```
 
-That repopulates `firmware/platformio/data/` with per-row slices and `source.raw` staging files.
+That repopulates `firmware/platformio/data/` with host-side row slices and `source.raw` staging files.
 
-Then regenerate the bundled firmware header:
+Regenerate the bundled firmware header:
 
 ```sh
 python tools/build_bundled_demo_header.py
 ```
 
-Then rebuild the firmware:
+Then rebuild firmware:
 
 ```sh
 cd firmware/platformio
-pio run
+pio run -e adafruit_trellis_m4
 ```
 
 ## What Lives Where
-- `firmware/platformio/data/`: canonical demo source assets in row folders
-- `firmware/platformio/lib/Adafruit_LittleFS/src/generated/BundledDemoSlices.h`: generated bundled playback header compiled into firmware
-- `examples/`: convenient source WAVs and host-side demo helpers
 
-## When To Use Which Path
-- Want a known-good board quickly: flash the firmware and use the bundled demo pack.
-- Want to audition new WAV material: rebuild the staged data and bundled header, then rebuild firmware.
-- Want to record on hardware: use the live record workflow and let the board write row-local source/slices.
+- `firmware/platformio/data/`: host-side staging tree for demo source assets.
+- `firmware/platformio/lib/Adafruit_LittleFS/src/generated/BundledDemoSlices.h`: generated slice pack compiled into firmware.
+- `examples/`: convenient source WAVs and host-side demo helpers.
+
+## What Is Not Primary
+
+- `buildfs` / `uploadfs` is not the normal board path for v0.1.
+- `/manifest.json` is a legacy/internal diagnostic artifact.
+- `/factory/*` restore is experimental and should not be used as the public reset workflow.
