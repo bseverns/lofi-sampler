@@ -39,7 +39,7 @@ public:
   void requestDiagnostics(uint8_t voice);
 
 private:
-  static constexpr uint8_t  JOB_QUEUE_SIZE = 8;
+  static constexpr uint8_t  JOB_QUEUE_SIZE = 9;
   static constexpr uint8_t  MAX_PATH_LEN   = 32;
   static constexpr int16_t  SELF_TEST_AMPLITUDE = 384;
   // Simple per-voice RAM buffer for current slice. Big enough to slurp an entire

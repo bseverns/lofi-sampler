@@ -14,7 +14,6 @@ public:
 
 private:
   bool rollProbability(uint8_t probability) const;
-  float levelFromVelocity(uint8_t velocity) const;
 
   AudioEngine& audio;
   StepState (&gates)[4][8];

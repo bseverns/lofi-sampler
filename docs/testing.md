@@ -83,3 +83,4 @@ Bench-test on real hardware when you change:
 - DAC/ISR flow
 - Trellis scanning or redraw cadence
 - recording or slicing lifecycle
+- TC4-driven `RecorderADC` capture cadence and its coexistence with the TC3 playback ISR; host tests cover timing math and ownership, not physical ADC cadence, noise, or interrupt priority behavior.

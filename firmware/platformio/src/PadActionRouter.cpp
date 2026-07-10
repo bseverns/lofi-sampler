@@ -1,4 +1,5 @@
 #include "PadActionRouter.h"
+#include "VelocityLevel.h"
 #include <cstdio>
 
 namespace {
@@ -120,10 +121,8 @@ PadActionResult PadActionRouter::actionStutter(uint8_t row, uint8_t col, const P
   char rowL = "ABCD"[row];
   char path[16];
   snprintf(path, sizeof(path), "/%c/%c%d.raw", rowL, rowL, col + 1);
-  float velocity = 0.35f + (0.08f * col);
-  if (velocity > 1.0f) velocity = 1.0f;
 
-  audio.setLevel(row, velocity);
+  audio.setLevel(row, levelFromStepVelocity(gates[row][col].velocity, defaultVoiceLevel));
   if (audio.preloadAndPlay(row, path)) {
     stutterReleaseAt[row] = millis() + 160;
     return PadActionResult::MatchedStop;

@@ -19,7 +19,7 @@ bool ClockTransport::handleRealtime(uint8_t statusByte) {
       }
       ++midiClockCount;
       uint8_t nextStep = (stepIndex + 1) % stepsPerBar;
-      uint8_t clocksNeeded = clocksPerStep + swingTicksForStep(nextStep);
+      uint8_t clocksNeeded = (uint8_t)(clocksPerStep + swingTicksForStep(nextStep));
       if (midiClockCount >= clocksNeeded) {
         midiClockCount = 0;
         stepIndex = nextStep;
@@ -47,16 +47,12 @@ void ClockTransport::stop() {
   playing = false;
 }
 
-uint8_t ClockTransport::swingTicksForStep(uint8_t nextStep) const {
-  static const uint8_t SWUNG_STEPS[] = {1, 3, 5}; // 0-indexed steps 2/4/6
-  for (uint8_t step : SWUNG_STEPS) {
-    if (nextStep == step) {
-      float swing = clocksPerStep * swingAmount;
-      if (swing < 0.0f) swing = 0.0f;
-      uint8_t ticks = (uint8_t)(swing + 0.5f);
-      if (ticks > clocksPerStep / 2) ticks = clocksPerStep / 2;
-      return ticks;
-    }
-  }
-  return 0;
+int8_t ClockTransport::swingTicksForStep(uint8_t nextStep) const {
+  float swing = clocksPerStep * swingAmount;
+  if (swing < 0.0f) swing = 0.0f;
+  uint8_t ticks = (uint8_t)(swing + 0.5f);
+  if (ticks > clocksPerStep / 2) ticks = clocksPerStep / 2;
+  if (ticks == 0) return 0;
+
+  return (nextStep & 0x01) ? (int8_t)ticks : -(int8_t)ticks;
 }

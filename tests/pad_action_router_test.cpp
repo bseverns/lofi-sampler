@@ -96,6 +96,8 @@ void testVelocityThenStutterChain() {
   expectEq(audio.preloadCalls, 1, "stutter fired preload");
   expectEqU8(audio.lastPreloadRow, 0, "stutter row");
   expectTrue(audio.lastPreloadPath == "/A/A3.raw", "stutter path");
+  float expectedLevel = (0.45f + ((108.0f / 127.0f) * 0.55f)) * 0.9f;
+  expectNear(audio.levels[0], expectedLevel, 0.001f, "stutter uses sequenced velocity curve");
 
   // After stutter timeout, level should return to default.
   g_now_ms = 1200;

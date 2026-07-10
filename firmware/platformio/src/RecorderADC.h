@@ -18,10 +18,13 @@ public:
   int16_t* mutableData() { return buf; }
 
 private:
+  static uint32_t timerCompareForSampleRate(uint32_t timerHz, uint32_t sampleRateHz);
+  static void onTimerISR();
+  void captureSample();
+
   volatile bool rec = false;
   int analogPin = ANALOG_IN_PIN;
   static const uint32_t CAP = MAX_RECORD_SAMPLES;
   int16_t* buf = nullptr;
-  uint32_t idx = 0;
-  uint32_t nextMicros = 0;
+  volatile uint32_t idx = 0;
 };

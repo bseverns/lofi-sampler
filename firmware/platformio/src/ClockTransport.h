@@ -15,7 +15,7 @@ public:
   uint8_t currentStep() const { return stepIndex; }
 
 private:
-  uint8_t swingTicksForStep(uint8_t nextStep) const;
+  int8_t swingTicksForStep(uint8_t nextStep) const;
 
   const uint8_t stepsPerBar;
   const uint8_t clocksPerStep;
