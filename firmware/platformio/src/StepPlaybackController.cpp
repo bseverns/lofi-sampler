@@ -13,8 +13,7 @@ void StepPlaybackController::playStep(uint8_t stepIndex) {
     if (step.gate && rollProbability(step.probability)) {
       char path[16];
       snprintf(path, sizeof(path), "/%c/%c%d.raw", ROW_LETTERS[row], ROW_LETTERS[row], stepIndex + 1);
-      audio.setLevel(row, levelFromStepVelocity(step.velocity, defaultVoiceLevel));
-      audio.preloadAndPlay(row, path);
+      audio.triggerVoice(row, path, levelFromStepVelocity(step.velocity, defaultVoiceLevel));
     } else {
       audio.stopVoice(row);
     }

@@ -41,11 +41,16 @@ uint32_t readJobQueueSize() {
 
 void testFourVoiceStepBurstFitsQueue() {
   static constexpr uint8_t voices = 4;
-  static constexpr uint8_t jobsPerActiveVoice = 2; // setLevel + preload
+  static constexpr uint8_t jobsPerActiveVoice = 1; // atomic trigger carries gain + path
   static constexpr uint8_t requiredJobs = voices * jobsPerActiveVoice;
   uint32_t usableRingSlots = readJobQueueSize() - 1u;
 
-  expectEq(usableRingSlots, requiredJobs, "four active rows fit one queued step burst");
+  expectTrue(usableRingSlots >= requiredJobs, "four active rows fit one atomic trigger burst");
+
+  std::ifstream in(AUDIO_ENGINE_HEADER);
+  std::string body((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  expectTrue(std::regex_search(body, std::regex("Trigger")),
+             "AudioEngine exposes an atomic trigger job");
 }
 } // namespace
 

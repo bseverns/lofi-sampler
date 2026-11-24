@@ -10,7 +10,18 @@ cd firmware/platformio
 pio run -e adafruit_trellis_m4
 ```
 
-That is the same primary firmware build lane used by CI.
+That is the same primary firmware build lane used by CI. On Apple Silicon, `platformio.ini` pins the native ARM-hosted GCC package automatically; Rosetta is not required.
+
+## Performance Firmware Build
+
+The read-only stage profile is a separate build environment:
+
+```sh
+cd firmware/platformio
+pio run -e adafruit_trellis_m4_performance
+```
+
+It is intentionally distinct from the studio image: the performance profile disables destructive gestures, serial maintenance, automatic formatting, and recorder initialization. See [`performance-profile.md`](performance-profile.md) for the exact restrictions and hardware checks.
 
 ## Host Tests
 Run the host-side transport, routing, and filesystem-contract checks from repo root:

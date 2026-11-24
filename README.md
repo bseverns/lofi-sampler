@@ -11,6 +11,7 @@ This repo's canonical firmware path is **PlatformIO** under [`firmware/platformi
 - Audio internals: [`docs/audio-engine.md`](docs/audio-engine.md)
 - Demo/sample workflow: [`docs/demo-samples.md`](docs/demo-samples.md)
 - Testing and CI: [`docs/testing.md`](docs/testing.md)
+- Performance build and first-stage gesture contract: [`docs/performance-profile.md`](docs/performance-profile.md)
 - Proof/listening surface: [`docs/ListeningGuide.md`](docs/ListeningGuide.md)
 
 ## Quick Start

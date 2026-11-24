@@ -79,11 +79,18 @@ PadActionResult PadActionRouter::actionFx(uint8_t row, uint8_t col, const PadMod
 }
 
 PadActionResult PadActionRouter::actionReslice(uint8_t row, uint8_t col, const PadModifiers& mods) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)row;
+  (void)col;
+  (void)mods;
+  return PadActionResult::NoMatch;
+#else
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.alt || !mods.shift) return PadActionResult::NoMatch;
   if (col != (STEPS_PER_BAR - 3)) return PadActionResult::NoMatch;
   recording.resliceRow(row);
   return PadActionResult::MatchedStop;
+#endif
 }
 
 PadActionResult PadActionRouter::actionCycleVelocity(uint8_t row, uint8_t col, const PadModifiers& mods) {
@@ -133,6 +140,12 @@ PadActionResult PadActionRouter::actionStutter(uint8_t row, uint8_t col, const P
 }
 
 PadActionResult PadActionRouter::actionRecord(uint8_t row, uint8_t col, const PadModifiers& mods) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)row;
+  (void)col;
+  (void)mods;
+  return PadActionResult::NoMatch;
+#else
   (void)col;
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
@@ -143,14 +156,22 @@ PadActionResult PadActionRouter::actionRecord(uint8_t row, uint8_t col, const Pa
     recording.stopAndCommitReplace(row);
   }
   return PadActionResult::MatchedStop;
+#endif
 }
 
 PadActionResult PadActionRouter::actionErase(uint8_t row, uint8_t col, const PadModifiers& mods) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)row;
+  (void)col;
+  (void)mods;
+  return PadActionResult::NoMatch;
+#else
   (void)col;
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.alt || mods.shift) return PadActionResult::NoMatch;
   recording.restoreOrEraseRow(row);
   return PadActionResult::MatchedStop;
+#endif
 }
 
 uint8_t PadActionRouter::nextFromLanes(uint8_t current, const uint8_t* lanes, size_t count) {

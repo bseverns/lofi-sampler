@@ -14,11 +14,14 @@ There is no required `buildfs` / `uploadfs` step for normal use. The bundled sli
 
 ## Refreshing Bundled Demo Material
 
-Rebuild staged row data from WAV files:
+Rebuild staged row data from four supplied mono 16-bit PCM, 22.05 kHz WAV files. The repository does **not** ship the original source WAVs; preserve them outside the generated staging tree and pass their explicit paths:
 
 ```sh
-python tools/build_demo_fs.py \
-  --input-dir examples \
+python3 tools/build_demo_fs.py \
+  --row A:/absolute/path/to/A.wav \
+  --row B:/absolute/path/to/B.wav \
+  --row C:/absolute/path/to/C.wav \
+  --row D:/absolute/path/to/D.wav \
   --stage-dir firmware/platformio/data
 ```
 

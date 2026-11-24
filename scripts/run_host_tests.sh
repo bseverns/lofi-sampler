@@ -44,6 +44,18 @@ echo "Compiling PadActionRouter host tests..."
 echo "Running PadActionRouter host tests..."
 "${BUILD_DIR}/pad_action_router_test"
 
+echo "Compiling PadActionRouter performance-profile tests..."
+"${CXX_CMD[@]}" -std=c++17 -Wall -Wextra -pedantic \
+  -DPAD_ROUTER_HOST_TEST -DNTM4_PERFORMANCE_BUILD \
+  "${ROOT_DIR}/tests/pad_action_router_test.cpp" \
+  "${ROOT_DIR}/firmware/platformio/src/PadActionRouter.cpp" \
+  -I"${ROOT_DIR}/tests/fakes" \
+  -I"${ROOT_DIR}/firmware/platformio/src" \
+  -o "${BUILD_DIR}/pad_action_router_performance_test"
+
+echo "Running PadActionRouter performance-profile tests..."
+"${BUILD_DIR}/pad_action_router_performance_test"
+
 echo "Compiling RecorderADC host tests..."
 "${CXX_CMD[@]}" -std=c++17 -Wall -Wextra -pedantic \
   -DRECORDER_ADC_HOST_TEST \

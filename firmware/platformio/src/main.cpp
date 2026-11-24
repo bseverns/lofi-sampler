@@ -82,6 +82,9 @@ static void logLegacyManifest(const ManifestCheck& status) {
 }
 
 static void handleSerialCommands() {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  return;
+#else
   while (Serial.available()) {
     char c = Serial.read();
     if (c == 'f' || c == 'F') {
@@ -100,6 +103,7 @@ static void handleSerialCommands() {
       audio.playSelfTestTone();
     }
   }
+#endif
 }
 
 // ---------- MIDI parsing ----------
@@ -122,6 +126,9 @@ void handleMidi() {
         Serial.println(clockLogCount);
       }
     }
+    if (b0 == 0xFC) {
+      audio.panic();
+    }
     if (clockTransport.handleRealtime(b0)) {
       Serial.print(F("[step] "));
       Serial.println(clockTransport.currentStep());
@@ -134,7 +141,11 @@ void handleMidi() {
 void setup() {
   Serial.begin(115200);
   delay(10);
-  Serial.println(F("NTM4 Sampler boot"));
+#if defined(NTM4_PERFORMANCE_BUILD)
+  Serial.println(F("NTM4 Sampler PERFORMANCE boot"));
+#else
+  Serial.println(F("NTM4 Sampler STUDIO boot"));
+#endif
 
 #if NTM4_SETUP_DIAG_STAGE > 0
   ui.begin();
@@ -187,11 +198,14 @@ void setup() {
   ui.begin();
   audio.begin();
   audio.attachStorage(&storage);
+  audio.start();
+  audioStarted = true;
+#if !defined(NTM4_PERFORMANCE_BUILD)
   rec.begin();
+#endif
 
   modifierTracker.reset();
 
-  audioStarted = false;
   usbMountedAtMs = 0;
   uiDirty = true;
   lastDrawStep = 255;
@@ -220,6 +234,8 @@ void loop() {
   delay(5);
   return;
 #else
+
+  audio.service();
 
   if (!audioStarted && TinyUSBDevice.mounted()) {
     if (usbMountedAtMs == 0) {
@@ -287,7 +303,6 @@ void loop() {
   return;
 #endif
 
-  audio.service();
   uint8_t drawStep = clockTransport.isPlaying() ? clockTransport.currentStep() : 255;
   int recRow = recordingController.isRecording() ? (int)recordingController.activeRow() : -1;
   if (drawStep != lastDrawStep || recRow != lastDrawRecRow) {

@@ -17,6 +17,7 @@ import subprocess
 import sys
 import textwrap
 from pathlib import Path
+from typing import Optional
 import wave
 
 ROWS = ("A", "B", "C", "D")
@@ -97,7 +98,7 @@ def _discover_rows(input_dir: Path, explicit: dict[str, Path]) -> dict[str, Path
     return mapping
 
 
-def build_manifest(rows, render_command, firmware_version, littlefs_bin: Path | None):
+def build_manifest(rows, render_command, firmware_version, littlefs_bin: Optional[Path]):
     return {
         "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
         "firmware_version": firmware_version,

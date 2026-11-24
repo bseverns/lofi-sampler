@@ -21,12 +21,17 @@ bool Storage::begin() {
     return false;
   }
   if (!lfs.begin()) {
-    // try to format
+#if defined(NTM4_PERFORMANCE_BUILD)
+    return false; // Performance firmware never formats or creates storage state.
+#else
     if (!lfs.format()) return false;
     if (!lfs.begin()) return false;
+#endif
   }
   mounted = true;
+#if !defined(NTM4_PERFORMANCE_BUILD)
   ensureTree();
+#endif
   return true;
 }
 

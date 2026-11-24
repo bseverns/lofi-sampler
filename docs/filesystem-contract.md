@@ -35,11 +35,14 @@ Bundled demo slices do not include `source.raw`. Reslice and restore are only bl
 
 ## Maintainer Path
 
-Maintainers can rebuild the bundled demo pack from source WAV files:
+Maintainers can rebuild the bundled demo pack from four supplied mono 16-bit PCM, 22.05 kHz source WAV files. The original source files are not tracked in this repository:
 
 ```sh
-python tools/build_demo_fs.py \
-  --input-dir examples \
+python3 tools/build_demo_fs.py \
+  --row A:/absolute/path/to/A.wav \
+  --row B:/absolute/path/to/B.wav \
+  --row C:/absolute/path/to/C.wav \
+  --row D:/absolute/path/to/D.wav \
   --stage-dir firmware/platformio/data
 
 python tools/build_bundled_demo_header.py

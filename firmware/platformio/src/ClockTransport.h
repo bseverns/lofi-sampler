@@ -4,6 +4,13 @@
 
 class ClockTransport {
 public:
+  enum class State : uint8_t {
+    Startup,
+    Playing,
+    ExplicitlyStopped,
+    ClockLost,
+  };
+
   ClockTransport(uint8_t stepsPerBar, uint8_t clocksPerStep, float swingAmount);
 
   // Feed one realtime MIDI status byte (0xF8..0xFC).
@@ -11,7 +18,9 @@ public:
   bool handleRealtime(uint8_t statusByte);
 
   void stop();
-  bool isPlaying() const { return playing; }
+  void clockLost();
+  bool isPlaying() const { return transportState == State::Playing; }
+  State state() const { return transportState; }
   uint8_t currentStep() const { return stepIndex; }
 
 private:
@@ -21,7 +30,7 @@ private:
   const uint8_t clocksPerStep;
   const float swingAmount;
 
-  bool playing = false;
+  State transportState = State::Startup;
   uint8_t stepIndex = 0;
   uint16_t midiClockCount = 0;
 };

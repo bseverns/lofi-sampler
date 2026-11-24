@@ -190,6 +190,17 @@ void AudioEngine::requestDiagnostics(uint8_t voice) {
   enqueueJob(job);
 }
 
+bool AudioEngine::triggerVoice(uint8_t voice, const char* path, float level) {
+  if (!storage || voice >= 4 || !path) return false;
+  Job job;
+  job.type = JobType::Trigger;
+  job.voice = voice;
+  job.value = level;
+  strncpy(job.path, path, MAX_PATH_LEN - 1);
+  job.path[MAX_PATH_LEN - 1] = '\0';
+  return enqueueJob(job);
+}
+
 bool AudioEngine::preloadAndPlay(uint8_t voice, const char* path) {
   if (!storage) return false;
   if (voice >= 4 || !path) return false;
@@ -216,6 +227,22 @@ void AudioEngine::stopVoice(uint8_t voice) {
   if (!enqueueJob(job)) {
     armGainRamp(voice, 0.0f, STOP_FADE_FRAMES);
   }
+}
+
+void AudioEngine::panic() {
+  noInterrupts();
+  jobHead = 0;
+  jobTail = 0;
+  for (uint8_t v = 0; v < 4; ++v) {
+    vavailable[v] = 0;
+    vpos[v] = 0;
+    voiceActive[v] = false;
+    voicePrimed[v] = false;
+    voiceStreaming[v] = false;
+    voiceDraining[v] = false;
+    vgainCurrent[v] = 0.0f;
+  }
+  interrupts();
 }
 
 void AudioEngine::service() {
@@ -333,6 +360,9 @@ void AudioEngine::handleJob(const Job& job) {
     case JobType::Preload:
       handlePreload(job);
       break;
+    case JobType::Trigger:
+      handleTrigger(job);
+      break;
     case JobType::Fade:
       handleFade(job);
       break;
@@ -396,6 +426,12 @@ void AudioEngine::handlePreload(const Job& job) {
 
   // Try to immediately seed the buffer so playback starts on the very next tick.
   pumpStreams();
+}
+
+void AudioEngine::handleTrigger(const Job& job) {
+  if (job.voice >= 4) return;
+  vgainDesired[job.voice] = job.value;
+  handlePreload(job);
 }
 
 void AudioEngine::handleFade(const Job& job) {

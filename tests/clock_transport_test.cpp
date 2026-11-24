@@ -105,15 +105,30 @@ void testContinuePreservesStepPosition() {
   expectEq(transport.currentStep(), 2, "continued from frozen step");
 }
 
-void testClockAfterStopAutoRestartsFromZero() {
+void testClockAfterExplicitStopDoesNotRestart() {
   ClockTransport transport(8, 12, 0.15f);
   transport.handleRealtime(0xFA);
   clocksUntilNextStep(transport);
-  expectEq(transport.currentStep(), 1, "at step 1 before stop-auto-restart check");
+  expectEq(transport.currentStep(), 1, "at step 1 before explicit stop");
 
   transport.handleRealtime(0xFC);
-  expectTrue(transport.handleRealtime(0xF8), "first bare clock after stop auto-restarts");
-  expectEq(transport.currentStep(), 0, "bare clock after stop restarts from step zero");
+  for (uint8_t i = 0; i < 24; ++i) {
+    expectTrue(!transport.handleRealtime(0xF8), "clock after explicit stop does not emit a step");
+  }
+  expectTrue(!transport.isPlaying(), "continuing clock leaves explicit stop latched");
+  expectEq(transport.currentStep(), 1, "continuing clock preserves stopped position");
+}
+
+void testContinueAfterExplicitStopResumesFrozenPosition() {
+  ClockTransport transport(8, 12, 0.15f);
+  transport.handleRealtime(0xFA);
+  clocksUntilNextStep(transport);
+  transport.handleRealtime(0xFC);
+
+  expectTrue(!transport.handleRealtime(0xFB), "continue does not synthesize a step");
+  expectTrue(transport.isPlaying(), "continue clears explicit stop");
+  expectEq(clocksUntilNextStep(transport), 10, "continue preserves swing phase");
+  expectEq(transport.currentStep(), 2, "continue advances from frozen step");
 }
 
 void testSwingClamp() {
@@ -134,7 +149,8 @@ int main() {
   testSwingStepsNeedExtraTicks();
   testSwingIntervalsPreserveBarLength();
   testContinuePreservesStepPosition();
-  testClockAfterStopAutoRestartsFromZero();
+  testClockAfterExplicitStopDoesNotRestart();
+  testContinueAfterExplicitStopResumesFrozenPosition();
   testSwingClamp();
 
   if (failures != 0) {

@@ -120,6 +120,22 @@ void testProbabilityLane() {
   expectEq(rec.restoreCalls, 0, "restore fallback not triggered for lit step probability cycle");
 }
 
+void testPerformanceProfileRejectsDestructiveActions() {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  AudioEngine audio;
+  TrellisUI ui;
+  RecordingController rec;
+  StepState gates[4][8] = {};
+  auto router = makeRouter(audio, ui, gates, rec);
+
+  expectTrue(!router.handlePress(2, 6, {false, true}), "performance profile rejects record gesture");
+  expectTrue(!router.handlePress(2, 6, {true, false}), "performance profile rejects restore-or-erase gesture");
+  expectTrue(!router.handlePress(2, 5, {true, true}), "performance profile rejects reslice gesture");
+  expectEq(rec.beginCalls + rec.restoreCalls + rec.resliceCalls, 0,
+           "performance gestures never reach destructive recording controller methods");
+#endif
+}
+
 void testRecordAndRestoreFallback() {
   AudioEngine audio;
   TrellisUI ui;
@@ -145,10 +161,15 @@ void testRecordAndRestoreFallback() {
 
 int main() {
   testFxCombos();
+#if !defined(NTM4_PERFORMANCE_BUILD)
   testResliceCombo();
+#endif
   testVelocityThenStutterChain();
   testProbabilityLane();
+  testPerformanceProfileRejectsDestructiveActions();
+#if !defined(NTM4_PERFORMANCE_BUILD)
   testRecordAndRestoreFallback();
+#endif
 
   if (failures != 0) {
     std::cerr << failures << " test(s) failed\n";

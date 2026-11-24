@@ -8,11 +8,13 @@ ClockTransport::ClockTransport(uint8_t stepsPerBarRef, uint8_t clocksPerStepRef,
 bool ClockTransport::handleRealtime(uint8_t statusByte) {
   switch (statusByte) {
     case 0xF8: { // Timing Clock (24 PPQN)
-      if (!playing) {
-        // Some hosts/modules emit MIDI clock without an explicit Start.
-        // Treat the first clock as a transport start so the sequencer
-        // still advances from clock-only sources.
-        playing = true;
+      if (transportState == State::ExplicitlyStopped) {
+        return false;
+      }
+      if (transportState != State::Playing) {
+        // Clock-only sources begin from a known phase, but an explicit Stop
+        // remains latched until Continue or Start.
+        transportState = State::Playing;
         midiClockCount = 0;
         stepIndex = 0;
         return true;
@@ -28,14 +30,14 @@ bool ClockTransport::handleRealtime(uint8_t statusByte) {
       return false;
     }
     case 0xFA: // Start
-      playing = true;
+      transportState = State::Playing;
       midiClockCount = 0;
       stepIndex = 0;
       return true;
-    case 0xFB: // Continue (keep current step)
-      playing = true;
+    case 0xFB: // Continue (keep current step and swing phase)
+      transportState = State::Playing;
       return false;
-    case 0xFC: // Stop (freeze UI animation but keep last gates)
+    case 0xFC: // Stop
       stop();
       return false;
     default:
@@ -44,7 +46,13 @@ bool ClockTransport::handleRealtime(uint8_t statusByte) {
 }
 
 void ClockTransport::stop() {
-  playing = false;
+  transportState = State::ExplicitlyStopped;
+}
+
+void ClockTransport::clockLost() {
+  if (transportState == State::Playing) {
+    transportState = State::ClockLost;
+  }
 }
 
 int8_t ClockTransport::swingTicksForStep(uint8_t nextStep) const {

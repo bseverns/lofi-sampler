@@ -17,11 +17,17 @@ public:
   void stop();
   void playSelfTestTone(uint16_t durationMs = 250, uint16_t frequencyHz = 440);
 
+  // Atomically stage a slice identity and its intended gain in one queue slot.
+  bool triggerVoice(uint8_t voice, const char* path, float level);
+
   // schedule to play a raw slice file (e.g., "/A/A1.raw") on a voice (0..3)
   bool preloadAndPlay(uint8_t voice, const char* path);
 
-  // stop a voice
+  // Fade and drain one voice.
   void stopVoice(uint8_t voice);
+
+  // Immediately silence and reset all voices; safe for MIDI Stop and panic.
+  void panic();
 
   // service to refill timing (called from loop)
   void service();
@@ -53,6 +59,7 @@ private:
   enum class JobType : uint8_t {
     None,
     Preload,
+    Trigger,
     Fade,
     Diagnostics,
     FilterSweep,
@@ -74,6 +81,7 @@ private:
   bool popJob(Job& jobOut);
   void handleJob(const Job& job);
   void handlePreload(const Job& job);
+  void handleTrigger(const Job& job);
   void handleFade(const Job& job);
   void handleDiagnostics(const Job& job);
   void handleFilterSweep(const Job& job);
