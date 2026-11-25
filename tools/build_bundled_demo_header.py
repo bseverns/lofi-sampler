@@ -5,6 +5,7 @@ The current known-good playback path ships a read-only demo slice pack compiled
 into the firmware. This script regenerates that header from host-side staged RAW
 files in `firmware/platformio/data/`.
 """
+import argparse
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
@@ -13,12 +14,18 @@ OUT_PATH = REPO_ROOT / "firmware" / "platformio" / "lib" / "Adafruit_LittleFS" /
 
 
 def main() -> int:
-    files = sorted(p for p in DATA_DIR.rglob("*.raw") if p.name != "source.raw")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--data-dir", type=Path, default=DATA_DIR)
+    parser.add_argument("--output", type=Path, default=OUT_PATH)
+    args = parser.parse_args()
+    data_dir = args.data_dir.resolve()
+    out_path = args.output.resolve()
+    files = sorted(p for p in data_dir.rglob("*.raw") if p.name != "source.raw")
     if not files:
-        raise SystemExit(f"No slice raws found under {DATA_DIR}")
+        raise SystemExit(f"No slice raws found under {data_dir}")
 
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with OUT_PATH.open("w", encoding="utf-8") as f:
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8") as f:
         f.write("#pragma once\n")
         f.write("#include <cstddef>\n")
         f.write("#include <cstdint>\n\n")
@@ -43,14 +50,14 @@ def main() -> int:
         f.write("static const BundledReadOnlyFile kBundledDemoSlices[] = {\n")
         for idx, path in enumerate(files):
             symbol = f"bundled_demo_slice_{idx}"
-            rel_path = "/" + path.relative_to(DATA_DIR).as_posix()
+            rel_path = "/" + path.relative_to(data_dir).as_posix()
             f.write(f'  {{"{rel_path}", {symbol}, sizeof({symbol})}},\n')
         f.write("};\n\n")
         f.write("static constexpr size_t kBundledDemoSliceCount = sizeof(kBundledDemoSlices) / sizeof(kBundledDemoSlices[0]);\n")
         f.write("}  // namespace Adafruit_LittleFS_Namespace\n")
 
-    print(f"Wrote {OUT_PATH}")
-    print(f"Bundled {len(files)} slice files from {DATA_DIR}")
+    print(f"Wrote {out_path}")
+    print(f"Bundled {len(files)} slice files from {data_dir}")
     return 0
 
 

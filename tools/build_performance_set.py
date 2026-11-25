@@ -108,7 +108,7 @@ def main():
     resolved = {"schema": "lofi-performance-set@1", "id": spec["id"], "version": spec["version"],
                 "initial_pattern": pattern, "assets": assets}
     (stage / "performance-set.json").write_text(json.dumps(resolved, indent=2, sort_keys=True) + "\n")
-    subprocess.run([sys.executable, str(HEADER)], cwd=ROOT, check=True)
+    subprocess.run([sys.executable, str(HEADER), "--data-dir", str(stage)], cwd=ROOT, check=True)
     receipt = args.receipt or stage / "build-receipt.json"
     receipt.parent.mkdir(parents=True, exist_ok=True)
     receipt.write_text(json.dumps({**resolved, "header_sha256": _sha256(ROOT / "firmware/platformio/lib/Adafruit_LittleFS/src/generated/BundledDemoSlices.h")}, indent=2, sort_keys=True) + "\n")

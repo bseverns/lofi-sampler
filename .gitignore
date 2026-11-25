@@ -2,4 +2,7 @@
 .vscode/
 .venv/
 .venv311/
+# Keep private source recordings and generated rehearsal releases out of Git.
+prepared-sets/
+releases/
 .DS_Store
