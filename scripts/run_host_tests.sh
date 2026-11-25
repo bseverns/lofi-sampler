@@ -81,3 +81,6 @@ echo "Running RecorderADC host tests..."
 
 echo "Validating filesystem contract..."
 python3 "${ROOT_DIR}/scripts/validate_filesystem_contract.py"
+
+echo "Testing performance-set builder failure preservation..."
+python3 "${ROOT_DIR}/tests/build_performance_set_test.py"

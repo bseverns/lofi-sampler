@@ -12,6 +12,7 @@
 #include "RecorderADC.h"
 #include "TrellisUI.h"
 #include "PadInput.h"
+#include <generated/BundledPerformanceSet.h>
 
 #ifndef NTM4_LOOP_DIAG_STAGE
 #define NTM4_LOOP_DIAG_STAGE 4
@@ -198,10 +199,21 @@ void setup() {
   for (uint8_t r = 0; r < 4; ++r) {
     for (uint8_t c = 0; c < STEPS_PER_BAR; ++c) {
       gates[r][c] = defaultStepState();
+#if defined(NTM4_PERFORMANCE_BUILD)
+      const auto& prepared = Ntm4PerformanceSet::kInitialPattern[r][c];
+      gates[r][c] = {prepared.gate, prepared.velocity, prepared.probability};
+#endif
     }
   }
   logSliceSet(storage.checkSliceSet());
   ui.begin();
+#if defined(NTM4_PERFORMANCE_BUILD)
+  for (uint8_t r = 0; r < 4; ++r) {
+    for (uint8_t c = 0; c < STEPS_PER_BAR; ++c) {
+      ui.setStep(r, c, gates[r][c]);
+    }
+  }
+#endif
   audio.begin();
   audio.attachStorage(&storage);
   audio.start();

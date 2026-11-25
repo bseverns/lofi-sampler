@@ -29,6 +29,14 @@ public:
   // Immediately silence and reset all voices; safe for MIDI Stop and panic.
   void panic();
 
+  struct Diagnostics {
+    uint32_t queueHighWater;
+    uint32_t rejectedCommands;
+    uint32_t underruns;
+    uint32_t outputSaturations;
+  };
+  Diagnostics diagnostics() const;
+
   // service to refill timing (called from loop)
   void service();
 
@@ -101,6 +109,10 @@ private:
   Job jobQueue[JOB_QUEUE_SIZE];
   volatile uint8_t jobHead = 0;
   volatile uint8_t jobTail = 0;
+  volatile uint32_t queueHighWater = 0;
+  volatile uint32_t rejectedCommands = 0;
+  volatile uint32_t underruns = 0;
+  volatile uint32_t outputSaturations = 0;
 
   int16_t  vbuf[4][BUF_SAMPLES];
   volatile uint32_t vavailable[4] = {0,0,0,0};
