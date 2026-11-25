@@ -10,6 +10,7 @@ static constexpr uint8_t  MIDI_PPQN        = 24;         // USB MIDI Clock
 static constexpr uint8_t  CLOCKS_PER_STEP  = (MIDI_PPQN * BEATS_PER_BAR) / STEPS_PER_BAR; // 12
 // Swing shifts the even-numbered steps (2/4/6) later by this fraction of a 24 PPQN tick bucket.
 static constexpr float    GLOBAL_SWING_AMOUNT = 0.15f;   // 0.0f = straight, 0.25f ≈ "classic" MPC push
+static constexpr uint16_t MIDI_CLOCK_LOSS_MS = 500;       // freeze transport; let already-buffered audio drain
 
 // Per-step expressive defaults
 static constexpr uint8_t  STEP_DEFAULT_VELOCITY    = 108; // generous but leaves headroom for accents

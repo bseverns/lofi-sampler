@@ -44,6 +44,12 @@ bool PadActionRouter::handlePress(uint8_t row, uint8_t col, const PadModifiers& 
   return consumed;
 }
 
+void PadActionRouter::cancelMomentary() {
+  for (uint8_t row = 0; row < 4; ++row) {
+    stutterReleaseAt[row] = 0;
+  }
+}
+
 void PadActionRouter::serviceStutterDecay() {
   uint32_t now = millis();
   for (uint8_t row = 0; row < 4; ++row) {
@@ -73,27 +79,34 @@ PadActionResult PadActionRouter::actionFx(uint8_t row, uint8_t col, const PadMod
     case 3:
       audio.clearFx(row);
       return PadActionResult::MatchedStop;
+    case 7:
+      cancelMomentary();
+      audio.panic();
+      return PadActionResult::MatchedStop;
     default:
       return PadActionResult::NoMatch;
   }
 }
 
 PadActionResult PadActionRouter::actionReslice(uint8_t row, uint8_t col, const PadModifiers& mods) {
+  if (row >= 4 || !mods.alt || !mods.shift || col != (STEPS_PER_BAR - 3)) {
+    return PadActionResult::NoMatch;
+  }
 #if defined(NTM4_PERFORMANCE_BUILD)
-  (void)row;
-  (void)col;
-  (void)mods;
-  return PadActionResult::NoMatch;
+  return PadActionResult::MatchedStop; // consume prohibited maintenance gesture
 #else
-  if (row >= 4) return PadActionResult::NoMatch;
-  if (!mods.alt || !mods.shift) return PadActionResult::NoMatch;
-  if (col != (STEPS_PER_BAR - 3)) return PadActionResult::NoMatch;
   recording.resliceRow(row);
   return PadActionResult::MatchedStop;
 #endif
 }
 
 PadActionResult PadActionRouter::actionCycleVelocity(uint8_t row, uint8_t col, const PadModifiers& mods) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)row;
+  (void)col;
+  (void)mods;
+  return PadActionResult::NoMatch;
+#else
   if (row >= 4) return PadActionResult::NoMatch;
   if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
   if (col >= STEPS_PER_BAR) return PadActionResult::NoMatch;
@@ -104,6 +117,7 @@ PadActionResult PadActionRouter::actionCycleVelocity(uint8_t row, uint8_t col, c
   step.velocity = nextFromLanes(step.velocity, VELOCITY_LANES, sizeof(VELOCITY_LANES));
   ui.setStep(row, col, step);
   return PadActionResult::MatchedContinue;
+#endif
 }
 
 PadActionResult PadActionRouter::actionProbability(uint8_t row, uint8_t col, const PadModifiers& mods) {
@@ -120,14 +134,20 @@ PadActionResult PadActionRouter::actionProbability(uint8_t row, uint8_t col, con
 }
 
 PadActionResult PadActionRouter::actionStutter(uint8_t row, uint8_t col, const PadModifiers& mods) {
-  if (row >= 4) return PadActionResult::NoMatch;
-  if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
-  if (col >= STEPS_PER_BAR) return PadActionResult::NoMatch;
-  if (!gates[row][col].gate) return PadActionResult::NoMatch;
+  if (row >= 4 || !mods.shift || mods.alt || col >= STEPS_PER_BAR) {
+    return PadActionResult::NoMatch;
+  }
 
   char rowL = "ABCD"[row];
   char path[16];
   snprintf(path, sizeof(path), "/%c/%c%d.raw", rowL, rowL, col + 1);
+
+#if defined(NTM4_PERFORMANCE_BUILD)
+  const uint8_t velocity = gates[row][col].velocity ? gates[row][col].velocity : STEP_DEFAULT_VELOCITY;
+  audio.triggerVoice(row, path, levelFromStepVelocity(velocity, defaultVoiceLevel));
+  return PadActionResult::MatchedStop;
+#else
+  if (!gates[row][col].gate) return PadActionResult::NoMatch;
 
   audio.setLevel(row, levelFromStepVelocity(gates[row][col].velocity, defaultVoiceLevel));
   if (audio.preloadAndPlay(row, path)) {
@@ -137,19 +157,15 @@ PadActionResult PadActionRouter::actionStutter(uint8_t row, uint8_t col, const P
   audio.setLevel(row, defaultVoiceLevel);
   stutterReleaseAt[row] = 0;
   return PadActionResult::MatchedStop;
+#endif
 }
 
 PadActionResult PadActionRouter::actionRecord(uint8_t row, uint8_t col, const PadModifiers& mods) {
+  (void)col;
+  if (row >= 4 || !mods.shift || mods.alt) return PadActionResult::NoMatch;
 #if defined(NTM4_PERFORMANCE_BUILD)
-  (void)row;
-  (void)col;
-  (void)mods;
-  return PadActionResult::NoMatch;
+  return PadActionResult::MatchedStop; // consume prohibited maintenance gesture
 #else
-  (void)col;
-  if (row >= 4) return PadActionResult::NoMatch;
-  if (!mods.shift || mods.alt) return PadActionResult::NoMatch;
-
   if (!recording.isRecording()) {
     recording.begin(row);
   } else if (recording.activeRow() == row) {
@@ -160,15 +176,11 @@ PadActionResult PadActionRouter::actionRecord(uint8_t row, uint8_t col, const Pa
 }
 
 PadActionResult PadActionRouter::actionErase(uint8_t row, uint8_t col, const PadModifiers& mods) {
+  (void)col;
+  if (row >= 4 || !mods.alt || mods.shift) return PadActionResult::NoMatch;
 #if defined(NTM4_PERFORMANCE_BUILD)
-  (void)row;
-  (void)col;
-  (void)mods;
-  return PadActionResult::NoMatch;
+  return PadActionResult::MatchedStop; // consume prohibited maintenance gesture
 #else
-  (void)col;
-  if (row >= 4) return PadActionResult::NoMatch;
-  if (!mods.alt || mods.shift) return PadActionResult::NoMatch;
   recording.restoreOrEraseRow(row);
   return PadActionResult::MatchedStop;
 #endif

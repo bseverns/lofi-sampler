@@ -131,6 +131,18 @@ void testContinueAfterExplicitStopResumesFrozenPosition() {
   expectEq(transport.currentStep(), 2, "continue advances from frozen step");
 }
 
+void testClockLossFreezesAndClockReconnectRestarts() {
+  ClockTransport transport(8, 12, 0.15f);
+  transport.handleRealtime(0xFA);
+  clocksUntilNextStep(transport);
+  transport.clockLost();
+
+  expectTrue(!transport.isPlaying(), "clock loss freezes transport");
+  expectTrue(transport.state() == ClockTransport::State::ClockLost, "clock loss has distinct state");
+  expectTrue(transport.handleRealtime(0xF8), "clock reconnect starts a new known phase");
+  expectEq(transport.currentStep(), 0, "clock reconnect restarts at step zero");
+}
+
 void testSwingClamp() {
   ClockTransport transport(8, 12, 1.0f); // clamp should cap at +6 ticks
   transport.handleRealtime(0xFA);
@@ -151,6 +163,7 @@ int main() {
   testContinuePreservesStepPosition();
   testClockAfterExplicitStopDoesNotRestart();
   testContinueAfterExplicitStopResumesFrozenPosition();
+  testClockLossFreezesAndClockReconnectRestarts();
   testSwingClamp();
 
   if (failures != 0) {

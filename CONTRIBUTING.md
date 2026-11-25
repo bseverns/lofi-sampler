@@ -42,5 +42,17 @@ If behavior needs a broad explanation, put it in `docs/` and link to the relevan
   - bundled demo slices play
   - recording and reslicing still work on at least one row
 
+## Local Python Helpers
+
+Do not commit virtual environments. The MIDI clock sender is the only optional Python helper with external dependencies:
+
+```sh
+python3 -m venv firmware/platformio/.venv
+firmware/platformio/.venv/bin/pip install mido python-rtmidi
+```
+
+The checked-in tooling and host tests otherwise use Python's standard library.
+
 ## Docs Matter
+
 This repo is part instrument, part teaching tool, part firmware project. If you change controls, transport, sample loading, or architecture, update the docs in the same stack.

@@ -5,6 +5,7 @@
 #include <string>
 
 static constexpr uint8_t STEPS_PER_BAR = 8;
+static constexpr uint8_t STEP_DEFAULT_VELOCITY = 100;
 
 struct StepState {
   bool gate;
@@ -27,6 +28,16 @@ uint32_t millis();
 
 class AudioEngine {
 public:
+  void panic() { panicCalls++; }
+
+  bool triggerVoice(uint8_t row, const char* path, float level) {
+    triggerCalls++;
+    lastTriggerRow = row;
+    lastTriggerPath = path ? path : "";
+    lastTriggerLevel = level;
+    return triggerShouldSucceed;
+  }
+
   bool preloadAndPlay(uint8_t row, const char* path) {
     preloadCalls++;
     lastPreloadRow = row;
@@ -66,7 +77,13 @@ public:
   }
 
   bool preloadShouldSucceed = true;
+  bool triggerShouldSucceed = true;
+  uint32_t panicCalls = 0;
   std::array<float, 4> levels = {0.0f, 0.0f, 0.0f, 0.0f};
+  uint32_t triggerCalls = 0;
+  uint8_t lastTriggerRow = 255;
+  std::string lastTriggerPath;
+  float lastTriggerLevel = 0.0f;
   uint32_t preloadCalls = 0;
   uint8_t lastPreloadRow = 255;
   std::string lastPreloadPath;

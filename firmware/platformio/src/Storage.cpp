@@ -75,23 +75,41 @@ int32_t Storage::rawSampleCount(const char* path) {
 }
 
 bool Storage::writeRaw(const char* path, const int16_t* src, uint32_t samples) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)path;
+  (void)src;
+  (void)samples;
+  return false;
+#else
   ALFS::File f = lfs.open(path, FILE_O_WRITE | FILE_O_TRUNCATE | FILE_O_CREAT);
   if (!f) return false;
   uint32_t bytes = samples * 2;
   uint32_t wr = f.write((const uint8_t*)src, bytes);
   f.close();
   return wr == bytes;
+#endif
 }
 
 bool Storage::writeSourceWithBackup(char row, const int16_t* src, uint32_t samples) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)row;
+  (void)src;
+  (void)samples;
+  return false;
+#else
   String path = sourcePathFor(row);
   String prev = prevSourcePathFor(row);
   copyIfExists(path, prev); // best-effort; ok if missing
   clearFactoryRestoreMarker();
   return writeRaw(path.c_str(), src, samples);
+#endif
 }
 
 bool Storage::swapInPreviousSource(char row) {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  (void)row;
+  return false;
+#else
   String cur = sourcePathFor(row);
   String prev = prevSourcePathFor(row);
   if (!fileExists(prev.c_str())) return false;
@@ -115,10 +133,15 @@ bool Storage::swapInPreviousSource(char row) {
     lfs.remove(prev.c_str());
   }
   return true;
+#endif
 }
 
 void Storage::remove(const char* path) {
+#if !defined(NTM4_PERFORMANCE_BUILD)
   lfs.remove(path);
+#else
+  (void)path;
+#endif
 }
 
 void Storage::ensureTree() {

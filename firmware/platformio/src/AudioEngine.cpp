@@ -233,6 +233,8 @@ void AudioEngine::panic() {
   noInterrupts();
   jobHead = 0;
   jobTail = 0;
+  selfTestPhaseStep = 0;
+  selfTestRemaining = 0;
   for (uint8_t v = 0; v < 4; ++v) {
     vavailable[v] = 0;
     vpos[v] = 0;
@@ -241,6 +243,11 @@ void AudioEngine::panic() {
     voiceStreaming[v] = false;
     voiceDraining[v] = false;
     vgainCurrent[v] = 0.0f;
+    vgainTarget[v] = 0.0f;
+    vgainDesired[v] = 0.0f;
+    vgainStep[v] = 0.0f;
+    vgainFrames[v] = 0;
+    resetFx(v);
   }
   interrupts();
 }

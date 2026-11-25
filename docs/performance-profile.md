@@ -13,18 +13,35 @@ The legacy/studio image remains `adafruit_trellis_m4`; it retains live capture a
 
 The performance image starts the 22.05 kHz audio timer without waiting for USB mount. It plays only the bundled, compiled slice pack through the existing known-good path. If storage cannot mount, boot fails rather than formatting or creating a new filesystem tree.
 
-The performance image rejects record, restore/erase, and reslice pad gestures. It also disables all serial maintenance commands, including experimental factory restore. MIDI Stop invokes immediate audio panic and latches transport stopped; later clock messages do not restart it. Only MIDI Start or Continue resumes transport.
+The performance image rejects record, restore/erase, and reslice storage actions; the corresponding modifier gestures are consumed and never fall through to gate edits. Its Storage mutation entry points fail closed, and all serial maintenance commands—including experimental factory restore—are disabled.
 
-## Gesture vocabulary: first-stage contract
+### Transport, panic, and clock loss
+
+- **MIDI Stop:** immediately panics audio, cancels momentary stutter restoration, and latches transport stopped. Further clock messages do nothing; only Start or Continue resumes it.
+- **Panic:** MIDI Stop or **Alt + Shift + step 8** clears queued commands, active voices, gain ramps, effects, and the self-test tone. It does not itself alter transport state.
+- **Clock loss / USB disconnect:** after 500 ms without MIDI Clock, or when USB disconnects, the transport freezes. Buffered audio is allowed to drain. A subsequent clock reconnects from step 1; explicit Stop remains latched across clock messages.
+
+## Gesture vocabulary: current performance contract
 
 - **Tap:** edit a persistent gate, including physical columns 7 and 8.
-- **Shift + lit step:** cycle velocity and momentarily retrigger that slice. This legacy coupling is preserved in the studio profile only; do not treat it as a prepared-performance audition design.
+- **Shift + any step:** direct slice retrigger. It never changes gate or velocity and uses one atomic audio trigger command.
 - **Alt + lit step:** cycle probability.
-- **Alt + Shift + steps 1–4:** momentary effect macros / clear FX.
-- **MIDI Stop:** immediate panic and stopped transport state.
+- **Alt + Shift + steps 1–4:** filter, bitcrush, drive, and clear FX.
+- **Alt + Shift + step 8:** immediate physical panic.
+- Disabled recording, restore/erase, and reslice combinations are inert and consume the press.
 
-Row mute/solo, pattern rotation, initial-pattern restoration, and a dedicated pad panic gesture are deliberately not assigned yet: they need an unambiguous visible-state design before touching the live surface.
+Row mute/solo, pattern rotation, initial-pattern restoration, and persistent velocity editing remain proposed rather than implemented.
 
-## Verification boundaries
+## Software evidence and physical boundary
 
-Host tests prove transport Stop/Continue behavior, atomic trigger queue structure, and that destructive pad gestures do not reach the recording controller when compiled with `NTM4_PERFORMANCE_BUILD`. They do not prove timing, audio headroom, LED contention, or hardware storage behavior; bench-test those on a NeoTrellis M4 before performance use.
+Host tests cover Stop/Continue/clock-loss state transitions, performance gate-fallback prevention, direct retrigger routing, and the panic gesture. Both PlatformIO environments compile in CI and locally. This does **not** verify DAC behavior, queue timing, USB disconnect behavior, external flash behavior, LED contention, or audible headroom on a board.
+
+### Required hardware matrix before performance use
+
+| Check | Observable pass condition |
+| --- | --- |
+| Cold boot | Performance boot indication and all 32 bundled slices play without USB attached. |
+| MIDI Stop | Current sound cuts immediately; continuing clock does not restart transport. |
+| Panic gesture | Alt + Shift + step 8 cuts sound; the next retrigger plays only the newly pressed slice. |
+| Clock loss/reconnect | Clock removal freezes steps; reconnect begins on step 1. |
+| Read-only boundary | Record, restore, and reslice gestures leave the prepared set byte-for-byte unchanged. |

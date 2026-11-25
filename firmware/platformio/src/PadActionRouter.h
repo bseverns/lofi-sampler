@@ -19,6 +19,7 @@ public:
                   float defaultVoiceLevel = 0.9f);
 
   bool handlePress(uint8_t row, uint8_t col, const PadModifiers& mods);
+  void cancelMomentary();
   void serviceStutterDecay();
 
 private:

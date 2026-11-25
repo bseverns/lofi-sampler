@@ -1,3 +1,5 @@
 .pio/
 .vscode/
+.venv/
+.venv311/
 .DS_Store

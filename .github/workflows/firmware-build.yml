@@ -49,11 +49,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-platformio-
 
-      - name: Build (adafruit_trellis_m4 + TinyUSB MIDI)
+      - name: Build studio and performance firmware
         run: |
           mkdir -p artifacts
           set -o pipefail
-          pio run -e adafruit_trellis_m4 2>&1 | tee artifacts/firmware-build.log
+          pio run -e adafruit_trellis_m4 2>&1 | tee artifacts/studio-build.log
+          pio run -e adafruit_trellis_m4_performance 2>&1 | tee artifacts/performance-build.log
 
       - name: Upload build logs
         if: always()

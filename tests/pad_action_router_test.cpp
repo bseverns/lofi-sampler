@@ -67,6 +67,18 @@ void testFxCombos() {
   expectEq(audio.clearFxCalls, 1, "clear fx triggered");
 }
 
+void testPanicGesture() {
+  AudioEngine audio;
+  TrellisUI ui;
+  RecordingController rec;
+  StepState gates[4][8] = {};
+  auto router = makeRouter(audio, ui, gates, rec);
+
+  expectTrue(router.handlePress(3, 7, {true, true}), "alt-shift step 8 panic is consumed");
+  expectEq(audio.panicCalls, 1, "panic reaches audio engine");
+  expectTrue(!gates[3][7].gate, "panic gesture does not change gate");
+}
+
 void testResliceCombo() {
   AudioEngine audio;
   TrellisUI ui;
@@ -120,7 +132,21 @@ void testProbabilityLane() {
   expectEq(rec.restoreCalls, 0, "restore fallback not triggered for lit step probability cycle");
 }
 
-void testPerformanceProfileRejectsDestructiveActions() {
+void toggleGateFallback(StepState (&gates)[4][8], uint8_t row, uint8_t col) {
+  gates[row][col].gate = !gates[row][col].gate;
+}
+
+void pressWithGateFallback(PadActionRouter& router,
+                           StepState (&gates)[4][8],
+                           uint8_t row,
+                           uint8_t col,
+                           const PadModifiers& mods) {
+  if (!router.handlePress(row, col, mods)) {
+    toggleGateFallback(gates, row, col);
+  }
+}
+
+void testPerformanceProfileConsumesDestructiveGestures() {
 #if defined(NTM4_PERFORMANCE_BUILD)
   AudioEngine audio;
   TrellisUI ui;
@@ -128,11 +154,30 @@ void testPerformanceProfileRejectsDestructiveActions() {
   StepState gates[4][8] = {};
   auto router = makeRouter(audio, ui, gates, rec);
 
-  expectTrue(!router.handlePress(2, 6, {false, true}), "performance profile rejects record gesture");
-  expectTrue(!router.handlePress(2, 6, {true, false}), "performance profile rejects restore-or-erase gesture");
-  expectTrue(!router.handlePress(2, 5, {true, true}), "performance profile rejects reslice gesture");
+  pressWithGateFallback(router, gates, 2, 6, {false, true});
+  pressWithGateFallback(router, gates, 2, 6, {true, false});
+  pressWithGateFallback(router, gates, 2, 5, {true, true});
+  expectTrue(!gates[2][6].gate && !gates[2][5].gate,
+             "performance destructive gestures do not reach gate fallback");
   expectEq(rec.beginCalls + rec.restoreCalls + rec.resliceCalls, 0,
            "performance gestures never reach destructive recording controller methods");
+#endif
+}
+
+void testPerformanceShiftRetriggersWithoutChangingGateOrVelocity() {
+#if defined(NTM4_PERFORMANCE_BUILD)
+  AudioEngine audio;
+  TrellisUI ui;
+  RecordingController rec;
+  StepState gates[4][8] = {};
+  gates[1][4] = {false, 80, 100};
+  auto router = makeRouter(audio, ui, gates, rec);
+
+  expectTrue(router.handlePress(1, 4, {false, true}), "performance shift retrigger is consumed");
+  expectTrue(!gates[1][4].gate, "retrigger leaves gate unchanged");
+  expectEqU8(gates[1][4].velocity, 80, "retrigger leaves velocity unchanged");
+  expectEq(audio.triggerCalls, 1, "retrigger uses atomic trigger command");
+  expectTrue(audio.lastTriggerPath == "/B/B5.raw", "retrigger selects pressed slice");
 #endif
 }
 
@@ -161,12 +206,16 @@ void testRecordAndRestoreFallback() {
 
 int main() {
   testFxCombos();
+  testPanicGesture();
 #if !defined(NTM4_PERFORMANCE_BUILD)
   testResliceCombo();
 #endif
+#if !defined(NTM4_PERFORMANCE_BUILD)
   testVelocityThenStutterChain();
+#endif
   testProbabilityLane();
-  testPerformanceProfileRejectsDestructiveActions();
+  testPerformanceProfileConsumesDestructiveGestures();
+  testPerformanceShiftRetriggersWithoutChangingGateOrVelocity();
 #if !defined(NTM4_PERFORMANCE_BUILD)
   testRecordAndRestoreFallback();
 #endif

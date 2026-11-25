@@ -31,6 +31,8 @@ ManifestCheck manifestStatus;
 static const float DEFAULT_VOICE_LEVEL = 0.9f;
 static bool audioStarted = false;
 static uint32_t usbMountedAtMs = 0;
+static uint32_t lastMidiClockAtMs = 0;
+static bool usbWasMounted = false;
 static bool uiDirty = true;
 static uint8_t lastDrawStep = 255;
 static int lastDrawRecRow = -2;
@@ -120,6 +122,7 @@ void handleMidi() {
     } else if (b0 == 0xFC) {
       Serial.println(F("[midi] stop"));
     } else if (b0 == 0xF8) {
+      lastMidiClockAtMs = millis();
       ++clockLogCount;
       if ((clockLogCount % 24u) == 0u) {
         Serial.print(F("[midi] clock x"));
@@ -127,6 +130,7 @@ void handleMidi() {
       }
     }
     if (b0 == 0xFC) {
+      padRouter.cancelMomentary();
       audio.panic();
     }
     if (clockTransport.handleRealtime(b0)) {
@@ -252,6 +256,13 @@ void loop() {
 #endif
 
   handleMidi();
+  const bool usbMounted = TinyUSBDevice.mounted();
+  if ((!usbMounted && usbWasMounted) ||
+      (clockTransport.isPlaying() && lastMidiClockAtMs != 0 &&
+       (uint32_t)(millis() - lastMidiClockAtMs) > MIDI_CLOCK_LOSS_MS)) {
+    clockTransport.clockLost();
+  }
+  usbWasMounted = usbMounted;
   handleSerialCommands();
 
 #if NTM4_LOOP_DIAG_STAGE < 2

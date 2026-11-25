@@ -2,13 +2,14 @@
 
 This file is the plain-language status board for the NeoTrellis M4 Lo-Fi Sampler.
 
-## Stable
-- Hardware path: working on real NeoTrellis M4 hardware.
+## Software-verified
 - Firmware path: [`firmware/platformio/`](firmware/platformio) is the canonical build lane.
-- Clocked playback: USB MIDI Start/Continue/Stop/Clock are working in the current firmware.
-- Pad input: Trellis scanning, event packing, and chorded modifier handling are working.
-- Audio output: the timer ISR, direct DAC writes, and slice playback are stable enough for normal use.
-- Filesystem contract: freshly flashed firmware uses bundled demo slices for immediate playback; live recording writes row-local source/slice files.
+- Both `adafruit_trellis_m4` (studio) and `adafruit_trellis_m4_performance` compile on the Apple Silicon toolchain and in CI.
+- Clocked transport has host coverage for Start, Continue, explicit Stop, clock-only startup, clock loss, and reconnection semantics.
+- The performance profile uses bundled slices, rejects storage mutation, and keeps all 32 pads playable.
+
+## Hardware verification required
+- No current commit is hardware verification. USB enumeration, external flash initialization, DAC onset, LED contention, USB disconnect, read-only enforcement, and performance reliability require the matrix in [`docs/performance-profile.md`](docs/performance-profile.md).
 
 ## Canonical Paths
 - Firmware: [`firmware/platformio/`](firmware/platformio)
