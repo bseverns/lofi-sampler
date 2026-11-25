@@ -1,0 +1,16 @@
+{
+  "id": "my-rehearsal-set",
+  "version": "0.1.0",
+  "rows": {
+    "A": "/absolute/path/to/row-a.wav",
+    "B": "/absolute/path/to/row-b.wav",
+    "C": "/absolute/path/to/row-c.wav",
+    "D": "/absolute/path/to/row-d.wav"
+  },
+  "initial_pattern": [
+    [{"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}],
+    [{"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}],
+    [{"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}],
+    [{"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}, {"gate": false, "velocity": 108, "probability": 100}]
+  ]
+}

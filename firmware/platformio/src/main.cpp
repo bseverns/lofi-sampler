@@ -115,6 +115,9 @@ void handleMidi() {
   uint8_t packet[4];
   while (usb_midi.readPacket(packet)) {
     uint8_t b0 = packet[1];
+    if (b0 == 0xFA || b0 == 0xFB || b0 == 0xF8) {
+      lastMidiClockAtMs = millis();
+    }
     if (b0 == 0xFA) {
       Serial.println(F("[midi] start"));
     } else if (b0 == 0xFB) {
@@ -122,7 +125,6 @@ void handleMidi() {
     } else if (b0 == 0xFC) {
       Serial.println(F("[midi] stop"));
     } else if (b0 == 0xF8) {
-      lastMidiClockAtMs = millis();
       ++clockLogCount;
       if ((clockLogCount % 24u) == 0u) {
         Serial.print(F("[midi] clock x"));
@@ -258,7 +260,7 @@ void loop() {
   handleMidi();
   const bool usbMounted = TinyUSBDevice.mounted();
   if ((!usbMounted && usbWasMounted) ||
-      (clockTransport.isPlaying() && lastMidiClockAtMs != 0 &&
+      (clockTransport.isPlaying() &&
        (uint32_t)(millis() - lastMidiClockAtMs) > MIDI_CLOCK_LOSS_MS)) {
     clockTransport.clockLost();
   }
@@ -276,11 +278,18 @@ void loop() {
     uint8_t c = ev & 0xFF;
     bool pressed = (ev & 0x10000);
     if (pressed) {
-      if (!modifierTracker.handlePress(r, c)) {
-        PadModifiers mods = modifierTracker.modifiersFor(r);
+      PadModifiers mods = modifierTracker.modifiersFor(r);
+      // Chord targets take precedence over their bare modifier-column role.
+      // This lets steps 7/8 remain playable targets while their offset-row pads
+      // are still modifiers when pressed first.
+      if (mods.alt || mods.shift) {
         modifierTracker.noteModifierUse(r, mods);
-        bool consumed = padRouter.handlePress(r, c, mods);
-        if (!consumed) {
+        if (!padRouter.handlePress(r, c, mods)) {
+          toggleStepGate(r, c);
+        }
+        uiDirty = true;
+      } else if (!modifierTracker.handlePress(r, c)) {
+        if (!padRouter.handlePress(r, c, mods)) {
           toggleStepGate(r, c);
         }
         uiDirty = true;
